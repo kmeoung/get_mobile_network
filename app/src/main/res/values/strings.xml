@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">GetNetwork</string>
+    <string name="tab_wifi">Wifi</string>
+    <string name="tab_cellular">Cellular</string>
+</resources>
