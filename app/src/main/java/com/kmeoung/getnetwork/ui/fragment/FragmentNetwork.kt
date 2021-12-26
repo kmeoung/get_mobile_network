@@ -1,5 +1,6 @@
 package com.kmeoung.getnetwork.ui.fragment
 
+import android.Manifest
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -13,6 +14,14 @@ import com.kmeoung.getnetwork.base.BaseViewHolder
 import com.kmeoung.getnetwork.base.IORecyclerViewListener
 import com.kmeoung.getnetwork.databinding.FramgnetNetworkBinding
 import com.kmeoung.getnetwork.ui.activity.NETWORKTYPE
+import android.Manifest.permission
+
+import android.content.pm.PackageManager
+
+import androidx.core.content.ContextCompat
+
+
+
 
 class FragmentNetwork(private var networkType: NETWORKTYPE) : BaseFragment() {
 
@@ -48,7 +57,14 @@ class FragmentNetwork(private var networkType: NETWORKTYPE) : BaseFragment() {
     }
 
     private fun getWifiInfo() {
-
+//        WIFI 제한사항
+//        안드로이드 배터리 수명을 늘리기 위해 안드로이드 와이파이 검색을 하는 주기를 제한함
+//        Android 8 / 8.1
+//        백그라운드 앱은 30분 간격으로 1회 스캔 가능
+//        Android 9이상
+//        각 포그라운드 앱은 2분 간격으로 4회 스캔할 수 있습니다. 이 경우, 단시간에 여러 번의 스캔이 가능하게 됩니다.
+//        백그라운드 앱은 모두 합쳐서 30분 간격으로 1회 스캔할 수 있습니다.
+//        ContextCompat.checkSelfPermission(context,PERMISSION)
     }
 
     private fun getCellularInfo() {
@@ -76,5 +92,5 @@ class FragmentNetwork(private var networkType: NETWORKTYPE) : BaseFragment() {
         }
 
         override fun getItemViewType(i: Int): Int = 0
-    })
+    }
 }
