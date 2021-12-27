@@ -5,11 +5,12 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.net.wifi.WifiManager
+import android.util.Log
 
 /**
  * 느낌이 현재 사용중인 와이파이 체크 하는 것 같
  */
-class BaseWifiManager(context: Context,listener: IOWifiListener) {
+class BaseWifiManager(context: Context,private var listener: IOWifiListener) {
 
     private val wifiManager : WifiManager = context.getSystemService(Context.WIFI_SERVICE) as WifiManager
     init{
@@ -46,19 +47,7 @@ class BaseWifiManager(context: Context,listener: IOWifiListener) {
         val success = wifiManager.startScan()
         if (!success) {
             // scan failure handling
-            scanFailure()
+            listener.scanFailure(null)
         }
-    }
-
-
-
-    private fun scanSuccess() {
-
-    }
-
-    private fun scanFailure() {
-        // handle failure: new scan did NOT succeed
-        // consider using old scan results: these are the OLD results!
-
     }
 }

@@ -10,6 +10,13 @@ import com.kmeoung.getnetwork.ui.fragment.FragmentNetwork
 
 class ActivityMain : BaseActivity() {
 
+    companion object{
+        enum class NETWORKTYPE {
+            WIFI,
+            CELLULAR
+        }
+    }
+
     private lateinit var binding: ActivityMainBinding
 
     private var currentType: NETWORKTYPE
@@ -47,7 +54,3 @@ class ActivityMain : BaseActivity() {
     }
 }
 
-enum class NETWORKTYPE {
-    WIFI,
-    CELLULAR
-}
