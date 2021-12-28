@@ -10,7 +10,7 @@ import android.util.Log
 /**
  * 느낌이 현재 사용중인 와이파이 체크 하는 것 같
  */
-class BaseWifiManager(context: Context,private var listener: IOWifiListener) {
+class BaseWifiManager(context: Context,private var listener: IOWifiListener?) {
 
     private val wifiManager : WifiManager = context.getSystemService(Context.WIFI_SERVICE) as WifiManager
     init{
@@ -25,10 +25,10 @@ class BaseWifiManager(context: Context,private var listener: IOWifiListener) {
                 val success = intent.getBooleanExtra(WifiManager.EXTRA_RESULTS_UPDATED, false)
                 if (success) {
                     val results = wifiManager.scanResults
-                    listener.scanSuccess(results)
+                    if (listener != null) listener!!.scanSuccess(results)
                 } else {
                     val results = wifiManager.scanResults
-                    listener.scanFailure(results)
+                    if (listener != null) listener!!.scanFailure(results)
                 }
             }
         }
@@ -47,7 +47,7 @@ class BaseWifiManager(context: Context,private var listener: IOWifiListener) {
         val success = wifiManager.startScan()
         if (!success) {
             // scan failure handling
-            listener.scanFailure(null)
+            if(listener != null) listener!!.scanFailure(null)
         }
     }
 }

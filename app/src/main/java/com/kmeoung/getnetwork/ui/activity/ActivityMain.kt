@@ -22,7 +22,7 @@ class ActivityMain : BaseActivity() {
     private var currentType: NETWORKTYPE
 
     init {
-        currentType = NETWORKTYPE.WIFI
+        currentType = NETWORKTYPE.CELLULAR
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -32,7 +32,8 @@ class ActivityMain : BaseActivity() {
 
         replaceFragment(binding.container, FragmentNetwork(currentType), false)
         val radioGroup = binding.radioGroup
-        binding.rbtnWifi.isChecked = true
+        binding.rbtnWifi.isChecked = currentType == NETWORKTYPE.WIFI
+        binding.rbtnCellular.isChecked = currentType == NETWORKTYPE.CELLULAR
         radioGroup.setOnCheckedChangeListener { _, resourceId ->
             var newType: NETWORKTYPE = currentType
             when (resourceId) {

@@ -2,12 +2,10 @@ package com.kmeoung.getnetwork.ui.fragment
 
 import android.Manifest
 import android.app.AlertDialog
+import android.app.ProgressDialog
 import android.content.Context
 import android.content.pm.PackageManager
-import android.net.ConnectivityManager
-import android.net.Network
-import android.net.NetworkCapabilities
-import android.net.NetworkRequest
+import android.net.*
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -24,20 +22,20 @@ import android.widget.Toast
 
 import com.kmeoung.getnetwork.base.*
 import com.kmeoung.getnetwork.bean.BeanWifi
-import android.net.wifi.WifiInfo
-import android.os.Build
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.kmeoung.getnetwork.ui.activity.ActivityMain.Companion.NETWORKTYPE
 
 
 class FragmentNetwork(private var networkType: NETWORKTYPE) : BaseFragment() {
-
+    // TODO : ISSUE 현재 다른 Listener 를 달아놓고 NETWORKTYPE으로 전환하면 Listener가 컨텍이 안되서 앱이 터짐
     companion object {
         private const val REQUEST_PERMISSION_GRANT = 3000
         private const val TAG = "FRAGMENT_NETWORK"
     }
 
+    // TODO : temp
+    private var _dialog: ProgressDialog? = null
 
     private var _binding: FramgnetNetworkBinding? = null
     private val binding get() = _binding!!
@@ -59,10 +57,16 @@ class FragmentNetwork(private var networkType: NETWORKTYPE) : BaseFragment() {
         _recyclerAdapter = BaseRecyclerViewAdapter(rvListener)
         rvList.adapter = mAdapter
 
+        // TODO : temp
+        _dialog = ProgressDialog(requireContext())
+
         binding.btnGetNetwork.setOnClickListener {
+
             when (networkType) {
-                NETWORKTYPE.WIFI ->
+                NETWORKTYPE.WIFI -> {
                     getWifiInfo()
+                    if (_dialog != null) _dialog!!.show()
+                }
                 NETWORKTYPE.CELLULAR ->
                     getCellularInfo()
             }
@@ -88,75 +92,25 @@ class FragmentNetwork(private var networkType: NETWORKTYPE) : BaseFragment() {
      * Wifi 세팅 초기
      */
     private fun initWifiSet() {
-        wifiManager = BaseWifiManager(requireContext(), object : IOWifiListener {
-            override fun scanSuccess(results: List<ScanResult>) {
-                Toast.makeText(context, "Wifi Scan Success", Toast.LENGTH_SHORT).show()
-                Log.d(TAG, "Wifi Scan Success")
-                mAdapter.clear()
-                for (result in results) {
-                    mAdapter.add(
-                        BeanWifi(
-                            "ssid) ${result.SSID}",
-                            "level) ${result.level}",
-                            "frequency) ${result.frequency}"
-                        )
-                    )
-                }
-            }
-
-            override fun scanFailure(results: List<ScanResult>?) {
-                Toast.makeText(context, "Wifi Scan Failed", Toast.LENGTH_SHORT).show()
-                Log.d(TAG, "Wifi Scan Failed")
-            }
-        })
+        wifiManager = BaseWifiManager(requireContext(),mWifiListener)
     }
 
     /**
      * Cellular 세팅 초기화
      */
     private fun initCellularSet() {
-        var request: NetworkRequest =
-            NetworkRequest.Builder()
-                .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
-                .build();
 
-        var connectivityManager: ConnectivityManager =
-            requireContext().applicationContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        var networkCallback: ConnectivityManager.NetworkCallback =
-            object : ConnectivityManager.NetworkCallback() {
-                override fun onAvailable(network: Network) {
-                    super.onAvailable(network)
-                    Log.d("TESTkmeoung", network.toString())
-                }
-
-                override fun onCapabilitiesChanged(
-                    network: Network,
-                    networkCapabilities: NetworkCapabilities
-                ) {
-                    super.onCapabilitiesChanged(network, networkCapabilities)
-                    if (Build.VERSION.SDK_INT > 28) {
-                        val wifiInfo = networkCapabilities.transportInfo as WifiInfo?
-                        Log.d("TESTkmeoung", wifiInfo.toString())
-                    } else {
-                        Log.d("TESTkmeoung", network.toString())
-                        Log.d("TESTkmeoung", networkCapabilities.toString())
-                        Toast.makeText(context, "안맞아 버전", Toast.LENGTH_SHORT).show()
-                    }
-                }
-            }
-        // etc.
-        connectivityManager.requestNetwork(request, networkCallback); // For request
-        connectivityManager.registerNetworkCallback(request, networkCallback); // For listen
     }
 
-    fun createLocationRequest() {
-//        val locationRequest = LocationRequest.create()?.apply {
-//            interval = 10000
-//            fastestInterval = 5000
-//            priority = LocationRequest.PRIORITY_HIGH_ACCURACY
-//        }
+    /**
+     * Network 사용중인지 확
+     */
+    fun isOnline(): Boolean {
+        val connMgr =
+            requireContext().getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val networkInfo: NetworkInfo? = connMgr.activeNetworkInfo
+        return networkInfo?.isConnected == true
     }
-
 
     /**
      * Wifi 정보들 가져오기
@@ -220,7 +174,17 @@ class FragmentNetwork(private var networkType: NETWORKTYPE) : BaseFragment() {
     }
 
     private fun getCellularInfo() {
-
+        if (isOnline()) {
+            val connectivityManager =
+                requireContext().getSystemService(ConnectivityManager::class.java)
+            val currentNetwork = connectivityManager.activeNetwork
+            val caps = connectivityManager.getNetworkCapabilities(currentNetwork)
+            val linkProperties = connectivityManager.getLinkProperties(currentNetwork)
+            Log.d(TAG, linkProperties.toString())
+            Log.d(TAG, caps.toString())
+        } else {
+            Toast.makeText(requireContext(), "인터넷에 연결중이 아닙니다.", Toast.LENGTH_SHORT).show()
+        }
     }
 
     override fun onRequestPermissionsResult(
@@ -248,8 +212,42 @@ class FragmentNetwork(private var networkType: NETWORKTYPE) : BaseFragment() {
         }
     }
 
+    var mWifiListener:IOWifiListener? =  object : IOWifiListener {
+        override fun scanSuccess(results: List<ScanResult>) {
+            if (_dialog != null) _dialog!!.dismiss()
+            Toast.makeText(requireContext(), "Wifi Scan Success", Toast.LENGTH_SHORT).show()
+            Log.d(TAG, "Wifi Scan Success")
+            mAdapter.clear()
+            for (result in results) {
+                mAdapter.add(
+                    BeanWifi(
+                        "ssid) ${result.SSID}",
+                        "level) ${result.level}",
+                        "frequency) ${result.frequency}"
+                    )
+                )
+            }
+        }
+
+        override fun scanFailure(results: List<ScanResult>?) {
+            if (_dialog != null) _dialog!!.dismiss()
+            Toast.makeText(requireContext(), "2분뒤에 다시 시도해주세", Toast.LENGTH_SHORT).show()
+            Log.d(TAG, "Wifi Scan Failed")
+        }
+    }
+
+
+    override fun onPause() {
+        super.onPause()
+        if (_dialog != null) _dialog!!.dismiss()
+        _binding = null
+        // TODO : 다른앱에서 확인하려면 null 제거
+        mWifiListener = null
+    }
+
     override fun onDestroyView() {
         super.onDestroyView()
+        if (_dialog != null) _dialog!!.dismiss()
         _binding = null
     }
 
