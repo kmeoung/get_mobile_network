@@ -17,14 +17,19 @@ import com.kmeoung.getnetwork.databinding.FramgnetNetworkBinding
 
 import android.net.wifi.ScanResult
 import android.net.wifi.WifiManager
+import android.os.Build
+import android.telephony.*
 import android.util.Log
 import android.widget.Toast
+import androidx.annotation.RequiresApi
 
 import com.kmeoung.getnetwork.base.*
 import com.kmeoung.getnetwork.bean.BeanWifi
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.kmeoung.getnetwork.ui.activity.ActivityMain.Companion.NETWORKTYPE
+
+import androidx.core.content.ContextCompat.getSystemService
 
 
 class FragmentNetwork(private var networkType: NETWORKTYPE) : BaseFragment() {
@@ -92,7 +97,7 @@ class FragmentNetwork(private var networkType: NETWORKTYPE) : BaseFragment() {
      * Wifi 세팅 초기
      */
     private fun initWifiSet() {
-        wifiManager = BaseWifiManager(requireContext(),mWifiListener)
+        wifiManager = BaseWifiManager(requireContext(), mWifiListener)
     }
 
     /**
@@ -174,17 +179,67 @@ class FragmentNetwork(private var networkType: NETWORKTYPE) : BaseFragment() {
     }
 
     private fun getCellularInfo() {
-        if (isOnline()) {
-            val connectivityManager =
-                requireContext().getSystemService(ConnectivityManager::class.java)
-            val currentNetwork = connectivityManager.activeNetwork
-            val caps = connectivityManager.getNetworkCapabilities(currentNetwork)
-            val linkProperties = connectivityManager.getLinkProperties(currentNetwork)
-            Log.d(TAG, linkProperties.toString())
-            Log.d(TAG, caps.toString())
-        } else {
-            Toast.makeText(requireContext(), "인터넷에 연결중이 아닙니다.", Toast.LENGTH_SHORT).show()
+
+        val connectivityManager =
+            requireContext().getSystemService(ConnectivityManager::class.java)
+        val currentNetwork = connectivityManager.activeNetwork
+        val caps = connectivityManager.getNetworkCapabilities(currentNetwork)
+        val linkProperties = connectivityManager.getLinkProperties(currentNetwork)
+        Log.d(TAG, linkProperties.toString())
+        Log.d(TAG, caps.toString())
+
+
+        val telephonyManager =
+            requireContext().getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager?
+        var permissions: ArrayList<String> = ArrayList()
+        permissions.add(Manifest.permission.ACCESS_FINE_LOCATION)
+        var denidedPermission = ArrayList<String>()
+        for (permission in permissions) {
+            val per = ContextCompat.checkSelfPermission(requireContext(), permission)
+            if (per != PackageManager.PERMISSION_GRANTED) {
+                denidedPermission.add(permission)
+            }
         }
+        var array = arrayOfNulls<String>(denidedPermission.size)
+        array = denidedPermission.toArray(array)
+        if (denidedPermission.size > 0) {
+            ActivityCompat.requestPermissions(
+                requireActivity(), array,
+                REQUEST_PERMISSION_GRANT
+            )
+        } else {
+            Log.d(TAG, telephonyManager.toString())
+
+            val cellInfo = telephonyManager!!.allCellInfo[0]
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                Log.d(TAG, cellInfo.cellSignalStrength.toString())
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                if (cellInfo is CellInfoNr) { // 5G
+                    Log.d(
+                        TAG,
+                        (telephonyManager!!.allCellInfo[0] as CellInfoLte).cellSignalStrength.toString()
+                    )
+                }
+            } else {
+                when (cellInfo) {
+                    is CellInfoLte -> Log.d(
+                        TAG,
+                        (telephonyManager!!.allCellInfo[0] as CellInfoLte).cellSignalStrength.toString()
+                    )
+                    is CellInfoGsm -> Log.d(
+                        TAG,
+                        (telephonyManager!!.allCellInfo[0] as CellInfoGsm).cellSignalStrength.toString()
+                    )
+                    else -> Toast.makeText(
+                        requireContext(),
+                        "데이터 정보를 확인할 수 없습니다.",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        }
+
     }
 
     override fun onRequestPermissionsResult(
@@ -212,7 +267,7 @@ class FragmentNetwork(private var networkType: NETWORKTYPE) : BaseFragment() {
         }
     }
 
-    var mWifiListener:IOWifiListener? =  object : IOWifiListener {
+    var mWifiListener: IOWifiListener? = object : IOWifiListener {
         override fun scanSuccess(results: List<ScanResult>) {
             if (_dialog != null) _dialog!!.dismiss()
             Toast.makeText(requireContext(), "Wifi Scan Success", Toast.LENGTH_SHORT).show()
