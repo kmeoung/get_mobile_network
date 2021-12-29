@@ -20,6 +20,7 @@ import android.net.wifi.WifiManager
 import android.os.Build
 import android.telephony.*
 import android.util.Log
+import android.widget.CalendarView
 import android.widget.Toast
 import androidx.annotation.RequiresApi
 
@@ -30,6 +31,9 @@ import androidx.core.content.ContextCompat
 import com.kmeoung.getnetwork.ui.activity.ActivityMain.Companion.NETWORKTYPE
 
 import androidx.core.content.ContextCompat.getSystemService
+import com.kmeoung.getnetwork.bean.BeanCellular
+import java.util.*
+import kotlin.collections.ArrayList
 
 
 class FragmentNetwork(private var networkType: NETWORKTYPE) : BaseFragment() {
@@ -180,6 +184,8 @@ class FragmentNetwork(private var networkType: NETWORKTYPE) : BaseFragment() {
 
     private fun getCellularInfo() {
 
+        mAdapter.clear()
+
         val connectivityManager =
             requireContext().getSystemService(ConnectivityManager::class.java)
         val currentNetwork = connectivityManager.activeNetwork
@@ -193,7 +199,10 @@ class FragmentNetwork(private var networkType: NETWORKTYPE) : BaseFragment() {
             requireContext().getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager?
         var permissions: ArrayList<String> = ArrayList()
         permissions.add(Manifest.permission.ACCESS_FINE_LOCATION)
+        permissions.add(Manifest.permission.READ_PHONE_STATE)
+
         var denidedPermission = ArrayList<String>()
+
         for (permission in permissions) {
             val per = ContextCompat.checkSelfPermission(requireContext(), permission)
             if (per != PackageManager.PERMISSION_GRANTED) {
@@ -208,32 +217,141 @@ class FragmentNetwork(private var networkType: NETWORKTYPE) : BaseFragment() {
                 REQUEST_PERMISSION_GRANT
             )
         } else {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                if(telephonyManager!!.dataNetworkType == TelephonyManager.NETWORK_TYPE_LTE){
+
+                }
+            } else {
+                if(telephonyManager!!.networkType == TelephonyManager.NETWORK_TYPE_LTE){
+
+                }
+            }
+
+
+            var cal = Calendar.getInstance()
             Log.d(TAG, telephonyManager.toString())
 
-            val cellInfo = telephonyManager!!.allCellInfo[0]
-
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                Log.d(TAG, cellInfo.cellSignalStrength.toString())
+                Log.d(TAG, telephonyManager!!.allCellInfo[0].cellSignalStrength.toString())
+
+                mAdapter.add(
+                    BeanCellular(
+                        "${cal.get(Calendar.DATE)}/${cal.get(Calendar.HOUR_OF_DAY)}:${
+                            cal.get(
+                                Calendar.MINUTE
+                            )
+                        }:${cal.get(Calendar.SECOND)}",
+                        "asuLevel) ${telephonyManager!!.allCellInfo[0].cellSignalStrength.asuLevel}",
+                        "dbm) ${telephonyManager!!.allCellInfo[0].cellSignalStrength.dbm}",
+                        "level) ${telephonyManager!!.allCellInfo[0].cellSignalStrength.level}"
+                    )
+                )
             } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                if (cellInfo is CellInfoNr) { // 5G
+                if (telephonyManager!!.allCellInfo[0] is CellInfoNr) { // 5G
+
+                    val signalStrength =
+                        (telephonyManager!!.allCellInfo[0] as CellInfoNr).cellSignalStrength
                     Log.d(
                         TAG,
-                        (telephonyManager!!.allCellInfo[0] as CellInfoLte).cellSignalStrength.toString()
+                        signalStrength.toString()
+                    )
+
+                    mAdapter.add(
+                        BeanCellular(
+                            "${cal.get(Calendar.DATE)}/${cal.get(Calendar.HOUR_OF_DAY)}:${
+                                cal.get(
+                                    Calendar.MINUTE
+                                )
+                            }:${cal.get(Calendar.SECOND)}",
+                            "asuLevel) ${signalStrength.asuLevel}",
+                            "dbm) ${signalStrength.dbm}",
+                            "level) ${signalStrength.level}"
+                        )
                     )
                 }
             } else {
-                when (cellInfo) {
-                    is CellInfoLte -> Log.d(
-                        TAG,
-                        (telephonyManager!!.allCellInfo[0] as CellInfoLte).cellSignalStrength.toString()
-                    )
-                    is CellInfoGsm -> Log.d(
-                        TAG,
-                        (telephonyManager!!.allCellInfo[0] as CellInfoGsm).cellSignalStrength.toString()
-                    )
+                when (telephonyManager!!.allCellInfo[0]) {
+                    is CellInfoLte -> {
+                        val signalStrength :CellSignalStrengthLte =
+                            (telephonyManager!!.allCellInfo[0] as CellInfoLte).cellSignalStrength
+                        Log.d(
+                            TAG,
+                            (telephonyManager!!.allCellInfo[0] as CellInfoLte).cellSignalStrength.toString()
+                        )
+                        var contents1 : String = ""
+                        var contents2 : String = ""
+                        var contents3 : String = ""
+                        var contents4 : String = ""
+
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            contents1 = "rsrp) ${signalStrength.rsrp}"
+                            contents2 = "rsrq) ${signalStrength.rsrq}"
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                                contents3 = "rssi) ${signalStrength.rssi}"
+                                mAdapter.add(
+                                    BeanCellular(
+                                        "${cal.get(Calendar.DATE)}/${cal.get(Calendar.HOUR_OF_DAY)}:${
+                                            cal.get(
+                                                Calendar.MINUTE
+                                            )
+                                        }:${cal.get(Calendar.SECOND)}",
+                                        contents1,
+                                        contents2,
+                                        contents3
+                                    )
+                                )
+                            }else{
+                                mAdapter.add(
+                                    BeanCellular(
+                                        "${cal.get(Calendar.DATE)}/${cal.get(Calendar.HOUR_OF_DAY)}:${
+                                            cal.get(
+                                                Calendar.MINUTE
+                                            )
+                                        }:${cal.get(Calendar.SECOND)}",
+                                        contents1,
+                                        contents2,
+                                        "level) ${signalStrength.level}"
+                                    )
+                                )
+                            }
+                        }else{
+                            mAdapter.add(
+                                BeanCellular(
+                                    "${cal.get(Calendar.DATE)}/${cal.get(Calendar.HOUR_OF_DAY)}:${
+                                        cal.get(
+                                            Calendar.MINUTE
+                                        )
+                                    }:${cal.get(Calendar.SECOND)}",
+                                    "asuLevel) ${signalStrength.asuLevel}",
+                                    "dbm) ${signalStrength.dbm}",
+                                    "level) ${signalStrength.level}"
+                                )
+                            )
+                        }
+
+                    }
+                    is CellInfoGsm -> {
+                        Log.d(
+                            TAG,
+                            (telephonyManager!!.allCellInfo[0] as CellInfoGsm).cellSignalStrength.toString()
+                        )
+                        val cellInfoGsm = (telephonyManager!!.allCellInfo[0] as CellInfoGsm).cellSignalStrength
+                        mAdapter.add(
+                            BeanCellular(
+                                "${cal.get(Calendar.DATE)}/${cal.get(Calendar.HOUR_OF_DAY)}:${
+                                    cal.get(
+                                        Calendar.MINUTE
+                                    )
+                                }:${cal.get(Calendar.SECOND)}",
+                                if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) "rssi) " + cellInfoGsm.rssi else "asuLevel) " + cellInfoGsm.asuLevel,
+                                "dbm) ${cellInfoGsm.dbm}",
+                                "level) ${cellInfoGsm.level}"
+                            )
+                        )
+                    }
                     else -> Toast.makeText(
                         requireContext(),
-                        "데이터 정보를 확인할 수 없습니다.",
+                        "상용망 정보를 확인할 수 없습니다.",
                         Toast.LENGTH_SHORT
                     ).show()
                 }
