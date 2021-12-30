@@ -1,11 +1,8 @@
 package com.kmeoung.getnetwork.ui.fragment
 
-import android.Manifest
 import android.app.AlertDialog
 import android.app.ProgressDialog
-import android.content.Context
 import android.content.pm.PackageManager
-import android.net.*
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -16,28 +13,21 @@ import com.kmeoung.getnetwork.R
 import com.kmeoung.getnetwork.databinding.FramgnetNetworkBinding
 
 import android.net.wifi.ScanResult
-import android.net.wifi.WifiManager
-import android.os.Build
-import android.telephony.*
 import android.util.Log
-import android.widget.CalendarView
 import android.widget.Toast
-import androidx.annotation.RequiresApi
 
 import com.kmeoung.getnetwork.base.*
-import com.kmeoung.getnetwork.bean.BeanWifi
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
+import com.kmeoung.getnetwork.bean.BeanData
 import com.kmeoung.getnetwork.ui.activity.ActivityMain.Companion.NETWORKTYPE
+import com.kmeoung.utils.WifiManager
 
-import androidx.core.content.ContextCompat.getSystemService
-import com.kmeoung.getnetwork.bean.BeanCellular
-import java.util.*
-import kotlin.collections.ArrayList
+import com.kmeoung.utils.CellularManager
+import com.kmeoung.utils.IOWifiListener
 
 
 class FragmentNetwork(private var networkType: NETWORKTYPE) : BaseFragment() {
-    // TODO : ISSUE 현재 다른 Listener 를 달아놓고 NETWORKTYPE으로 전환하면 Listener가 컨텍이 안되서 앱이 터짐
+    // TODO : 상용망 데이터 기준은 DBM 임
+
     companion object {
         private const val REQUEST_PERMISSION_GRANT = 3000
         private const val TAG = "FRAGMENT_NETWORK"
@@ -50,8 +40,6 @@ class FragmentNetwork(private var networkType: NETWORKTYPE) : BaseFragment() {
     private val binding get() = _binding!!
     private var _recyclerAdapter: BaseRecyclerViewAdapter? = null
     private val mAdapter get() = _recyclerAdapter!!
-
-    private var wifiManager: BaseWifiManager? = null
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -84,43 +72,6 @@ class FragmentNetwork(private var networkType: NETWORKTYPE) : BaseFragment() {
         return view
     }
 
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
-
-//        initCellularSet()
-        when (networkType) {
-            NETWORKTYPE.CELLULAR ->
-                initCellularSet()
-            NETWORKTYPE.WIFI ->
-                initWifiSet()
-
-        }
-    }
-
-    /**
-     * Wifi 세팅 초기
-     */
-    private fun initWifiSet() {
-        wifiManager = BaseWifiManager(requireContext(), mWifiListener)
-    }
-
-    /**
-     * Cellular 세팅 초기화
-     */
-    private fun initCellularSet() {
-
-    }
-
-    /**
-     * Network 사용중인지 확
-     */
-    fun isOnline(): Boolean {
-        val connMgr =
-            requireContext().getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        val networkInfo: NetworkInfo? = connMgr.activeNetworkInfo
-        return networkInfo?.isConnected == true
-    }
-
     /**
      * Wifi 정보들 가져오기
      */
@@ -134,228 +85,53 @@ class FragmentNetwork(private var networkType: NETWORKTYPE) : BaseFragment() {
 //        백그라운드 앱은 모두 합쳐서 30분 간격으로 1회 스캔할 수 있습니다.
 //        ContextCompat.checkSelfPermission(context,PERMISSION)
 
-        var permissions: ArrayList<String> = ArrayList()
+        val wifiManager = WifiManager(requireContext())
+        if(wifiManager.checkPermissions()){
+            try {
+                wifiManager.scanStart(object:IOWifiListener{
+                    override fun scanSuccess(results: List<ScanResult>) {
+                        if (_dialog != null) _dialog!!.dismiss()
+                        Toast.makeText(requireContext(), "Wifi Scan Success", Toast.LENGTH_SHORT).show()
+                        Log.d(TAG, "Wifi Scan Success")
+                        mAdapter.clear()
+                        for (result in results) {
+                            mAdapter.add(
+                                BeanData(
+                                    "ssid) ${result.SSID}",
+                                    "level) ${result.level}",
+                                    "frequency) ${result.frequency}"
+                                )
+                            )
+                        }
+                    }
 
-
-        permissions.add(Manifest.permission.ACCESS_FINE_LOCATION)
-        permissions.add(Manifest.permission.ACCESS_COARSE_LOCATION)
-        permissions.add(Manifest.permission.CHANGE_WIFI_STATE)
-        // todo : 위치 서비스 활성화 코드 추가 바람
-
-        var denidedPermission = ArrayList<String>()
-
-        for (permission in permissions) {
-            val per = ContextCompat.checkSelfPermission(requireContext(), permission)
-            if (per != PackageManager.PERMISSION_GRANTED) {
-                denidedPermission.add(permission)
+                    override fun scanFailure(results: List<ScanResult>?) {
+                        if (_dialog != null) _dialog!!.dismiss()
+                        Toast.makeText(requireContext(), "2분뒤에 다시 시도해주세요", Toast.LENGTH_SHORT).show()
+                        Log.d(TAG, "Wifi Scan Failed")
+                    }
+                })
+            }catch (e:Exception){
+                e.printStackTrace()
             }
+        }else{
+            wifiManager.requestPermissions(requireActivity(), REQUEST_PERMISSION_GRANT)
         }
-        var array = arrayOfNulls<String>(denidedPermission.size)
-        array = denidedPermission.toArray(array)
-        if (denidedPermission.size > 0) {
-            ActivityCompat.requestPermissions(
-                requireActivity(), array,
-                REQUEST_PERMISSION_GRANT
-            )
-        } else {
-            if (wifiManager != null) wifiManager!!.scanStart()
-        }
-    }
-
-    private fun getSavedWifiInfo() {
-        var wifi =
-            requireContext().applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-
-        var results = wifi.scanResults
-        mAdapter.clear()
-        for (result in results) {
-
-            mAdapter.add(
-                BeanWifi(
-                    "ssid) ${result.SSID}",
-                    "level) ${result.level}",
-                    "frequency) ${result.frequency}"
-                )
-            )
-        }
-        Toast.makeText(context, "${results[0].SSID} / ${results[0].level}", Toast.LENGTH_SHORT)
-            .show()
     }
 
     private fun getCellularInfo() {
 
         mAdapter.clear()
-
-        val connectivityManager =
-            requireContext().getSystemService(ConnectivityManager::class.java)
-        val currentNetwork = connectivityManager.activeNetwork
-        val caps = connectivityManager.getNetworkCapabilities(currentNetwork)
-        val linkProperties = connectivityManager.getLinkProperties(currentNetwork)
-        Log.d(TAG, linkProperties.toString())
-        Log.d(TAG, caps.toString())
-
-
-        val telephonyManager =
-            requireContext().getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager?
-        var permissions: ArrayList<String> = ArrayList()
-        permissions.add(Manifest.permission.ACCESS_FINE_LOCATION)
-        permissions.add(Manifest.permission.READ_PHONE_STATE)
-
-        var denidedPermission = ArrayList<String>()
-
-        for (permission in permissions) {
-            val per = ContextCompat.checkSelfPermission(requireContext(), permission)
-            if (per != PackageManager.PERMISSION_GRANTED) {
-                denidedPermission.add(permission)
+        var cellularInfo = CellularManager(requireContext())
+        if (cellularInfo.checkPermissions()) {
+            try {
+                mAdapter.add(BeanData(cellularInfo.networkType, "${cellularInfo.getDbm()}", ""))
+            } catch (e: Exception) {
+                e.printStackTrace()
+                Toast.makeText(requireContext(), "상용망 정보를 확인 할 수 없습니다.", Toast.LENGTH_SHORT).show()
             }
-        }
-        var array = arrayOfNulls<String>(denidedPermission.size)
-        array = denidedPermission.toArray(array)
-        if (denidedPermission.size > 0) {
-            ActivityCompat.requestPermissions(
-                requireActivity(), array,
-                REQUEST_PERMISSION_GRANT
-            )
         } else {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                if(telephonyManager!!.dataNetworkType == TelephonyManager.NETWORK_TYPE_LTE){
-
-                }
-            } else {
-                if(telephonyManager!!.networkType == TelephonyManager.NETWORK_TYPE_LTE){
-
-                }
-            }
-
-
-            var cal = Calendar.getInstance()
-            Log.d(TAG, telephonyManager.toString())
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                Log.d(TAG, telephonyManager!!.allCellInfo[0].cellSignalStrength.toString())
-
-                mAdapter.add(
-                    BeanCellular(
-                        "${cal.get(Calendar.DATE)}/${cal.get(Calendar.HOUR_OF_DAY)}:${
-                            cal.get(
-                                Calendar.MINUTE
-                            )
-                        }:${cal.get(Calendar.SECOND)}",
-                        "asuLevel) ${telephonyManager!!.allCellInfo[0].cellSignalStrength.asuLevel}",
-                        "dbm) ${telephonyManager!!.allCellInfo[0].cellSignalStrength.dbm}",
-                        "level) ${telephonyManager!!.allCellInfo[0].cellSignalStrength.level}"
-                    )
-                )
-            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                if (telephonyManager!!.allCellInfo[0] is CellInfoNr) { // 5G
-
-                    val signalStrength =
-                        (telephonyManager!!.allCellInfo[0] as CellInfoNr).cellSignalStrength
-                    Log.d(
-                        TAG,
-                        signalStrength.toString()
-                    )
-
-                    mAdapter.add(
-                        BeanCellular(
-                            "${cal.get(Calendar.DATE)}/${cal.get(Calendar.HOUR_OF_DAY)}:${
-                                cal.get(
-                                    Calendar.MINUTE
-                                )
-                            }:${cal.get(Calendar.SECOND)}",
-                            "asuLevel) ${signalStrength.asuLevel}",
-                            "dbm) ${signalStrength.dbm}",
-                            "level) ${signalStrength.level}"
-                        )
-                    )
-                }
-            } else {
-                when (telephonyManager!!.allCellInfo[0]) {
-                    is CellInfoLte -> {
-                        val signalStrength :CellSignalStrengthLte =
-                            (telephonyManager!!.allCellInfo[0] as CellInfoLte).cellSignalStrength
-                        Log.d(
-                            TAG,
-                            (telephonyManager!!.allCellInfo[0] as CellInfoLte).cellSignalStrength.toString()
-                        )
-                        var contents1 : String = ""
-                        var contents2 : String = ""
-                        var contents3 : String = ""
-                        var contents4 : String = ""
-
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                            contents1 = "rsrp) ${signalStrength.rsrp}"
-                            contents2 = "rsrq) ${signalStrength.rsrq}"
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                                contents3 = "rssi) ${signalStrength.rssi}"
-                                mAdapter.add(
-                                    BeanCellular(
-                                        "${cal.get(Calendar.DATE)}/${cal.get(Calendar.HOUR_OF_DAY)}:${
-                                            cal.get(
-                                                Calendar.MINUTE
-                                            )
-                                        }:${cal.get(Calendar.SECOND)}",
-                                        contents1,
-                                        contents2,
-                                        contents3
-                                    )
-                                )
-                            }else{
-                                mAdapter.add(
-                                    BeanCellular(
-                                        "${cal.get(Calendar.DATE)}/${cal.get(Calendar.HOUR_OF_DAY)}:${
-                                            cal.get(
-                                                Calendar.MINUTE
-                                            )
-                                        }:${cal.get(Calendar.SECOND)}",
-                                        contents1,
-                                        contents2,
-                                        "level) ${signalStrength.level}"
-                                    )
-                                )
-                            }
-                        }else{
-                            mAdapter.add(
-                                BeanCellular(
-                                    "${cal.get(Calendar.DATE)}/${cal.get(Calendar.HOUR_OF_DAY)}:${
-                                        cal.get(
-                                            Calendar.MINUTE
-                                        )
-                                    }:${cal.get(Calendar.SECOND)}",
-                                    "asuLevel) ${signalStrength.asuLevel}",
-                                    "dbm) ${signalStrength.dbm}",
-                                    "level) ${signalStrength.level}"
-                                )
-                            )
-                        }
-
-                    }
-                    is CellInfoGsm -> {
-                        Log.d(
-                            TAG,
-                            (telephonyManager!!.allCellInfo[0] as CellInfoGsm).cellSignalStrength.toString()
-                        )
-                        val cellInfoGsm = (telephonyManager!!.allCellInfo[0] as CellInfoGsm).cellSignalStrength
-                        mAdapter.add(
-                            BeanCellular(
-                                "${cal.get(Calendar.DATE)}/${cal.get(Calendar.HOUR_OF_DAY)}:${
-                                    cal.get(
-                                        Calendar.MINUTE
-                                    )
-                                }:${cal.get(Calendar.SECOND)}",
-                                if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) "rssi) " + cellInfoGsm.rssi else "asuLevel) " + cellInfoGsm.asuLevel,
-                                "dbm) ${cellInfoGsm.dbm}",
-                                "level) ${cellInfoGsm.level}"
-                            )
-                        )
-                    }
-                    else -> Toast.makeText(
-                        requireContext(),
-                        "상용망 정보를 확인할 수 없습니다.",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
-            }
+            cellularInfo.requestPermissions(requireActivity(), REQUEST_PERMISSION_GRANT)
         }
 
     }
@@ -385,37 +161,11 @@ class FragmentNetwork(private var networkType: NETWORKTYPE) : BaseFragment() {
         }
     }
 
-    var mWifiListener: IOWifiListener? = object : IOWifiListener {
-        override fun scanSuccess(results: List<ScanResult>) {
-            if (_dialog != null) _dialog!!.dismiss()
-            Toast.makeText(requireContext(), "Wifi Scan Success", Toast.LENGTH_SHORT).show()
-            Log.d(TAG, "Wifi Scan Success")
-            mAdapter.clear()
-            for (result in results) {
-                mAdapter.add(
-                    BeanWifi(
-                        "ssid) ${result.SSID}",
-                        "level) ${result.level}",
-                        "frequency) ${result.frequency}"
-                    )
-                )
-            }
-        }
-
-        override fun scanFailure(results: List<ScanResult>?) {
-            if (_dialog != null) _dialog!!.dismiss()
-            Toast.makeText(requireContext(), "2분뒤에 다시 시도해주세", Toast.LENGTH_SHORT).show()
-            Log.d(TAG, "Wifi Scan Failed")
-        }
-    }
-
 
     override fun onPause() {
         super.onPause()
         if (_dialog != null) _dialog!!.dismiss()
         _binding = null
-        // TODO : 다른앱에서 확인하려면 null 제거
-        mWifiListener = null
     }
 
     override fun onDestroyView() {
@@ -433,7 +183,7 @@ class FragmentNetwork(private var networkType: NETWORKTYPE) : BaseFragment() {
         }
 
         override fun onBindViewHolder(h: BaseViewHolder, i: Int) {
-            val bean = mAdapter.get(i) as BeanWifi
+            val bean = mAdapter.get(i) as BeanData
 
             val tvTitle = h.getItemView<TextView>(R.id.tv_title)
             val tvPower = h.getItemView<TextView>(R.id.tv_power)
@@ -441,7 +191,14 @@ class FragmentNetwork(private var networkType: NETWORKTYPE) : BaseFragment() {
 
             tvTitle.text = bean.name
             tvPower.text = bean.power1
-            tvStrength.text = bean.power2
+
+            if (bean.power2.isEmpty()) {
+                tvStrength.visibility = View.GONE
+            } else {
+                tvStrength.visibility = View.VISIBLE
+                tvStrength.text = bean.power2
+            }
+
 
         }
 

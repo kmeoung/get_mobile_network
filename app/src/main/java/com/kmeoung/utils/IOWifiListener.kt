@@ -1,4 +1,4 @@
-package com.kmeoung.getnetwork.base
+package com.kmeoung.utils
 
 import android.net.wifi.ScanResult
 
