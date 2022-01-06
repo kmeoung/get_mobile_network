@@ -1,26 +1,39 @@
 package com.kmeoung.utils
 
-import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
 import android.content.pm.PackageManager
+import android.location.LocationManager
 import android.os.Build
 import android.telephony.*
-import android.util.Log
-import android.widget.Toast
 import androidx.annotation.RequiresApi
+import androidx.annotation.RequiresPermission
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import com.kmeoung.getnetwork.bean.BeanCellular
-import com.kmeoung.getnetwork.ui.fragment.FragmentNetwork
 import java.lang.Exception
-import java.util.*
+import android.telephony.TelephonyManager
+
+import android.net.ConnectivityManager
+
+import android.net.NetworkInfo
+import android.telephony.cdma.CdmaCellLocation
+import android.telephony.gsm.GsmCellLocation
+import android.util.Log
+import androidx.core.content.PermissionChecker
+import com.kmeoung.getnetwork.bean.CellularData
+import com.kmeoung.getnetwork.bean.DATA_TYPE
+
+import java.lang.reflect.Method
+
 
 class CellularManager(private val context: Context) {
 
     private val telephonyManager: TelephonyManager =
         context.getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
+    private val locationManager = context.getSystemService(
+        Context.LOCATION_SERVICE
+    ) as LocationManager
 
     private var cellularType: CELLULAR_TYPE = CELLULAR_TYPE.NONE
 
@@ -34,6 +47,23 @@ class CellularManager(private val context: Context) {
         enum class CELLULAR_TYPE {
             TYPE_3G, TYPE_LTE, TYPE_5G, NONE
         }
+    }
+
+    /**
+     * 무선 네트워크 사용 여부 체크
+     */
+    fun checkInternet(): Boolean {
+        // 시스템 > 설정 > 위치 및 보안 > 무선 네트워크 사용 여부 체크.
+        return locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+
+    }
+
+    /**
+     * Gps 사용 여부 체
+     */
+    fun checkGps(): Boolean {
+        // 시스템 > 설정 > 위치 및 보안 > GPS 위성 사용 여부 체크.
+        return locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
     }
 
     /**
@@ -52,22 +82,6 @@ class CellularManager(private val context: Context) {
                 break
             }
         }
-        val cellInfo = telephonyManager.allCellInfo[0]
-
-        cellularType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            when (cellInfo) {
-                is CellInfoGsm -> CELLULAR_TYPE.TYPE_3G
-                is CellInfoLte -> CELLULAR_TYPE.TYPE_LTE
-                is CellInfoNr -> CELLULAR_TYPE.TYPE_5G
-                else -> CELLULAR_TYPE.NONE
-            }
-        } else {
-            when (cellInfo) {
-                is CellInfoGsm -> CELLULAR_TYPE.TYPE_3G
-                is CellInfoLte -> CELLULAR_TYPE.TYPE_LTE
-                else -> CELLULAR_TYPE.NONE
-            }
-        }
 
         return isGranted
     }
@@ -83,20 +97,54 @@ class CellularManager(private val context: Context) {
     }
 
 
+    @RequiresPermission(android.Manifest.permission.READ_PHONE_STATE)
+    fun getType(): String {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            when (telephonyManager.dataNetworkType) {
+                TelephonyManager.NETWORK_TYPE_EDGE,
+                TelephonyManager.NETWORK_TYPE_GPRS,
+                TelephonyManager.NETWORK_TYPE_CDMA,
+                TelephonyManager.NETWORK_TYPE_IDEN,
+                TelephonyManager.NETWORK_TYPE_1xRTT ->
+                    return "2G"
+                TelephonyManager.NETWORK_TYPE_UMTS,
+                TelephonyManager.NETWORK_TYPE_HSDPA,
+                TelephonyManager.NETWORK_TYPE_HSPA,
+                TelephonyManager.NETWORK_TYPE_HSPAP,
+                TelephonyManager.NETWORK_TYPE_EVDO_0,
+                TelephonyManager.NETWORK_TYPE_EVDO_A,
+                TelephonyManager.NETWORK_TYPE_EVDO_B ->
+                    return "3G"
+                TelephonyManager.NETWORK_TYPE_LTE -> {
+                    return if (isNRConnected(
+                            context.getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager,
+                            context
+                        )
+                    ) "5G" else "LTE"
+                }
+
+                TelephonyManager.NETWORK_TYPE_NR ->
+                    return "5G"
+                else -> return "Unknown"
+            }
+        }
+        return "Unknown"
+    }
+
+
     /**
      * GET LTE RSRP
      * checkPermission
      * @return rsrp
      */
+
     @RequiresApi(Build.VERSION_CODES.O)
-    @SuppressLint("MissingPermission")
+    @RequiresPermission(android.Manifest.permission.ACCESS_FINE_LOCATION)
     @Throws(Exception::class)
     fun getLteRsrp(): Int {
-        if (checkPermissions()) {
-            val cellInfo = telephonyManager.allCellInfo[0]
-            val cellSignalStrengthLte = (cellInfo as CellInfoLte).cellSignalStrength
-            return cellSignalStrengthLte.rsrp
-        } else throw Exception("please check permissions")
+        val cellInfo = telephonyManager.allCellInfo[0]
+        val cellSignalStrengthLte = (cellInfo as CellInfoLte).cellSignalStrength
+        return cellSignalStrengthLte.rsrp
     }
 
     /**
@@ -106,16 +154,14 @@ class CellularManager(private val context: Context) {
      */
 
     @RequiresApi(Build.VERSION_CODES.Q)
-    @SuppressLint("MissingPermission")
-    @Throws(Exception::class)
+    @RequiresPermission(android.Manifest.permission.ACCESS_FINE_LOCATION)
     fun get5GCsiRsrp(): Int {
-        if (checkPermissions()) {
-            val cellInfo = telephonyManager.allCellInfo[0]
-            val cellSignalStrengthNr: CellSignalStrengthNr =
-                ((cellInfo as CellInfoNr).cellSignalStrength as CellSignalStrengthNr)
-            return cellSignalStrengthNr.csiRsrp
-        } else throw Exception("please check permissions")
+        val cellInfo = telephonyManager.allCellInfo[0]
+        val cellSignalStrengthNr: CellSignalStrengthNr =
+            ((cellInfo as CellInfoNr).cellSignalStrength as CellSignalStrengthNr)
+        return cellSignalStrengthNr.csiRsrp
     }
+
 
     /**
      * GET 5G RSRP
@@ -124,52 +170,113 @@ class CellularManager(private val context: Context) {
      */
 
     @RequiresApi(Build.VERSION_CODES.Q)
-    @SuppressLint("MissingPermission")
-    @Throws(Exception::class)
+    @RequiresPermission(android.Manifest.permission.ACCESS_FINE_LOCATION)
     fun get5GSsRsrp(): Int {
-        if (checkPermissions()) {
-            val cellInfo = telephonyManager.allCellInfo[0]
-            val cellSignalStrengthNr: CellSignalStrengthNr =
-                ((cellInfo as CellInfoNr).cellSignalStrength as CellSignalStrengthNr)
-            return cellSignalStrengthNr.ssRsrp
-        } else throw Exception("please check permissions")
+        val cellInfo = telephonyManager.allCellInfo[0]
+        val cellSignalStrengthNr: CellSignalStrengthNr =
+            ((cellInfo as CellInfoNr).cellSignalStrength as CellSignalStrengthNr)
+        return cellSignalStrengthNr.ssRsrp
     }
 
     /**
      * 보통 사용하는 상용망 속도 기준
      * checkPermission
-     * @return dbm
+     * @return List<network_type,dbm>
      */
 
     @SuppressLint("MissingPermission")
-    @Throws(Exception::class)
-    fun getDbm(): Int {
-        if (checkPermissions()) {
-            val cellInfo = telephonyManager.allCellInfo[0]
+    @RequiresPermission(android.Manifest.permission.ACCESS_FINE_LOCATION)
+    fun getDbms(): ArrayList<CellularData> {
+        // TODO : 여기 설정된 타입마다 따로 설정 필요
+        val cellInfos = telephonyManager.allCellInfo
+        Log.d("TEST_11", getType())
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) { // CellInfo
-                return cellInfo.cellSignalStrength.dbm
-            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && cellInfo is CellInfoNr) { // CellInfoNr
-                return cellInfo.cellSignalStrength.dbm
-            } else if (cellInfo is CellInfoLte) { // CellInfoLte
-                return cellInfo.cellSignalStrength.dbm
+        var array = ArrayList<CellularData>()
+        for (cellInfo in cellInfos) {
+            val type = getType()
+            var dbm: Int? = null
+            var cid: Long? = null
+            var pcid: Int? = null
+            when {
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> {
+                    when (cellInfo) {
+                        is CellInfoNr -> {// CellInfoNr
+                            dbm = cellInfo.cellSignalStrength.dbm
+                            if (Build.VERSION.SDK_INT >= 30) {
+                                cid = (cellInfo.cellIdentity as CellIdentityNr).nci
+                                pcid = (cellInfo.cellIdentity as CellIdentityNr).pci
+                            } else {
+                                cid =
+                                    (telephonyManager.cellLocation as GsmCellLocation).cid.toLong()
+                            }
+                        }
+                        is CellInfoLte -> { // CellInfoLte
+                            dbm = cellInfo.cellSignalStrength.dbm
+                            if (Build.VERSION.SDK_INT >= 30) {
+                                cid = cellInfo.cellIdentity.ci.toLong()
+                                pcid = cellInfo.cellIdentity.pci
+                            } else {
+                                cid =
+                                    (telephonyManager.cellLocation as GsmCellLocation).cid.toLong()
+                            }
+                        }
+                        is CellInfoGsm -> {
+                            dbm = cellInfo.cellSignalStrength.dbm
+                            if (Build.VERSION.SDK_INT >= 30) {
+                                cid = cellInfo.cellIdentity.cid.toLong()
+                                pcid = cellInfo.cellIdentity.psc
+                            } else {
+                                cid =
+                                    (telephonyManager.cellLocation as GsmCellLocation).cid.toLong()
+                            }
+                        }
+                    }
+                }
+                cellInfo is CellInfoLte -> { // CellInfoLte
+                    dbm = cellInfo.cellSignalStrength.dbm
+                    if (Build.VERSION.SDK_INT >= 30) {
+                        cid = cellInfo.cellIdentity.ci.toLong()
+                        pcid = cellInfo.cellIdentity.pci
+                    } else {
+                        cid = (telephonyManager.cellLocation as GsmCellLocation).cid.toLong()
+                    }
+                }
+                cellInfo is CellInfoGsm -> {
+                    dbm = cellInfo.cellSignalStrength.dbm
+                    if (Build.VERSION.SDK_INT >= 30) {
+                        cid = cellInfo.cellIdentity.cid.toLong()
+                        pcid = cellInfo.cellIdentity.psc
+                    } else {
+                        cid = (telephonyManager.cellLocation as GsmCellLocation).cid.toLong()
+                    }
+                }
             }
-            return (cellInfo as CellInfoGsm).cellSignalStrength.dbm
-        } else throw Exception("please check permissions")
+            array.add(CellularData(cid, type, dbm, pcid))// CellInfo
+        }
+        return array
     }
 
     /**
-     * 상용망 네트워크 타입
-     * @return Network Type
+     * 5G 체크
      */
-    var networkType = ""
-    get() {
-        return when (cellularType) {
-            CELLULAR_TYPE.TYPE_3G -> "3G"
-            CELLULAR_TYPE.TYPE_LTE -> "LTE"
-            CELLULAR_TYPE.TYPE_5G -> "5G"
-            else -> "확인불가"
-        }
-    }
+    fun isNRConnected(telephonyManager: TelephonyManager, context: Context): Boolean {
 
+        try {
+            val obj = Class.forName(telephonyManager.javaClass.name)
+                .getDeclaredMethod("getServiceState", *arrayOfNulls(0))
+                .invoke(telephonyManager, *arrayOfNulls(0))
+            // try extracting from string
+            val serviceState = obj.toString()
+            val is5gActive = (serviceState.contains("nrState=CONNECTED") ||
+                    serviceState.contains("nsaState=5") ||
+                    serviceState.contains("EnDc=true") &&
+                    serviceState.contains("5G Allocated=true"))
+            if (is5gActive) {
+                return true
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return false
+    }
 }

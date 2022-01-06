@@ -1,52 +1,35 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/ll_bg"
     android:layout_width="match_parent"
     android:layout_height="50dp"
-    xmlns:tools="http://schemas.android.com/tools"
-    android:orientation="horizontal"
-    android:paddingLeft="15dp"
-    android:paddingRight="30dp"
     android:layout_marginTop="10dp"
     android:background="@color/yellow"
     android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingLeft="15dp"
+    android:paddingRight="30dp"
     tools:viewBindingIgnore="true">
 
     <TextView
+        android:id="@+id/tv_title"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:id="@+id/tv_title"
-        android:textColor="@color/black"
-        android:text=""/>
+        android:text=""
+        android:textColor="@color/black" />
 
     <Space
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_weight="1"/>
+        android:layout_weight="1" />
 
-    <LinearLayout
+    <TextView
+        android:id="@+id/tv_strength"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:orientation="vertical">
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:id="@+id/tv_power"
-            android:textColor="@color/black"
-            android:text=""/>
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:id="@+id/tv_strength"
-            android:textColor="@color/black"
-            android:text=""/>
-
-    </LinearLayout>
-
-
-
-
+        android:text=""
+        android:textColor="@color/black" />
 
 
 </LinearLayout>

@@ -7,6 +7,9 @@
         <entry key="..\:/android/get_mobile_network/app/src/main/res/layout/activity_main.xml" value="0.5322916666666667" />
         <entry key="..\:/android/get_mobile_network/app/src/main/res/layout/framgnet_network.xml" value="0.5322916666666667" />
         <entry key="..\:/android/get_mobile_network/app/src/main/res/layout/listitem_temp.xml" value="0.5322916666666667" />
+        <entry key="app/src/main/res/layout/framgnet_network.xml" value="0.21944444444444444" />
+        <entry key="app/src/main/res/layout/listitem_temp.xml" value="0.21944444444444444" />
+        <entry key="app/src/main/res/layout/main_activity.xml" value="0.21944444444444444" />
       </map>
     </option>
   </component>

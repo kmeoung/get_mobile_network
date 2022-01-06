@@ -1,3 +1,7 @@
 package com.kmeoung.getnetwork.bean
 
-data class BeanData(var name: String, var power1: String, var power2: String)
+enum class DATA_TYPE{
+    WIFI,CELLULAR
+}
+
+data class BeanData(var name:String,var strength :Int,var dataType :DATA_TYPE,)
