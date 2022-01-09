@@ -69,6 +69,8 @@ class WifiManager(private var context: Context) {
             }
         }
         context.registerReceiver(wifiScanReceiver, intentFilter)
+
+        wifiManager.connectionInfo
     }
 
     /**

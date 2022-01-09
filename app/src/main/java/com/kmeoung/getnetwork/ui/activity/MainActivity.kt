@@ -4,6 +4,9 @@ import android.annotation.SuppressLint
 import android.app.AlertDialog
 import android.app.ProgressDialog
 import android.content.pm.PackageManager
+import android.net.ConnectivityManager
+import android.net.LinkProperties
+import android.net.NetworkCapabilities
 import android.net.wifi.ScanResult
 import android.os.Bundle
 import android.util.Log
@@ -18,6 +21,7 @@ import com.kmeoung.getnetwork.base.BaseRecyclerViewAdapter
 import com.kmeoung.getnetwork.base.BaseViewHolder
 import com.kmeoung.getnetwork.base.IORecyclerViewListener
 import com.kmeoung.getnetwork.bean.BeanData
+import com.kmeoung.getnetwork.bean.BeanWifiData
 import com.kmeoung.getnetwork.bean.CellularData
 import com.kmeoung.getnetwork.bean.DATA_TYPE
 import com.kmeoung.getnetwork.databinding.MainActivityBinding
@@ -30,7 +34,7 @@ class MainActivity : BaseActivity() {
 
     companion object {
         private const val REQUEST_PERMISSION_GRANT = 3000
-        private const val TAG = "MAINACTIVITY"
+        private const val TAG = "MAIN_ACTIVITY_TAG"
 
         private const val TYPE_CELLULAR = 0
         private const val TYPE_WIFI = 1
@@ -68,7 +72,7 @@ class MainActivity : BaseActivity() {
         // 모바일 네트워크 먼저 로딩
         binding.btn.setOnClickListener { _ ->
             if (_dialog != null) _dialog!!.show()
-            getCellularInfo()
+            getWifiInfo()
         }
     }
 
@@ -92,7 +96,7 @@ class MainActivity : BaseActivity() {
                 if (cellularInfo.checkInternet()) {
                     mAdapter.clear()
                     try {
-                        getWifiInfo()
+//                        getWifiInfo()
                         for (data in cellularInfo.getDbms()) {
                             mAdapter.add(
                                 BeanData(
@@ -138,6 +142,15 @@ class MainActivity : BaseActivity() {
 //        각 포그라운드 앱은 2분 간격으로 4회 스캔할 수 있습니다. 이 경우, 단시간에 여러 번의 스캔이 가능하게 됩니다.
 //        백그라운드 앱은 모두 합쳐서 30분 간격으로 1회 스캔할 수 있습니다.
 //        ContextCompat.checkSelfPermission(context,PERMISSION)
+        // TODO : 현재 연결된 데이터 확인
+        val connectivityManager =
+            getSystemService(ConnectivityManager::class.java)
+        val currentNetwork = connectivityManager.activeNetwork
+        val caps: NetworkCapabilities? = connectivityManager.getNetworkCapabilities(currentNetwork)
+        val linkProperties: LinkProperties? = connectivityManager.getLinkProperties(currentNetwork)
+        Log.d(TAG, linkProperties.toString())
+        Log.d(TAG, caps.toString())
+
 
         _wifiManager = WifiManager(this@MainActivity)
         if (mWifiManager.checkPermissions()) {
@@ -155,6 +168,16 @@ class MainActivity : BaseActivity() {
                                 .show()
                             Log.d(TAG, "Wifi Scan Success")
                             for (result in results) {
+
+                                var wifiData = BeanWifiData(
+                                    result.BSSID,
+                                    result.SSID,
+                                    result.frequency,
+                                    result.channelWidth,
+                                    result.level // rssi
+                                )
+
+
                                 mAdapter.add(
                                     BeanData(
                                         "[ssid] ${result.SSID}",
@@ -180,7 +203,7 @@ class MainActivity : BaseActivity() {
                                 logData += "\n"
                             }
                             if (mAdapter.size() > 0) {
-                                WriteTextManager.setSaveText(this@MainActivity, logData)
+//                                WriteTextManager.setSaveText(this@MainActivity, logData)
                             }
                         }
 

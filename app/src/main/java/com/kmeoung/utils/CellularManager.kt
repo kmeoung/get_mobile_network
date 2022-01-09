@@ -187,13 +187,13 @@ class CellularManager(private val context: Context) {
     @SuppressLint("MissingPermission")
     @RequiresPermission(android.Manifest.permission.ACCESS_FINE_LOCATION)
     fun getDbms(): ArrayList<CellularData> {
-        // TODO : 여기 설정된 타입마다 따로 설정 필요
         val cellInfos = telephonyManager.allCellInfo
         Log.d("TEST_11", getType())
 
         var array = ArrayList<CellularData>()
         for (cellInfo in cellInfos) {
-            val type = getType()
+            // TODO : Cell 즉 기지국 정보마다 Network Type이 정확한 데이터 인지 확인 필요
+            var type = getType()
             var dbm: Int? = null
             var cid: Long? = null
             var pcid: Int? = null
