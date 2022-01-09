@@ -14,20 +14,24 @@ import androidx.core.content.ContextCompat
 import java.lang.Exception
 import android.telephony.TelephonyManager
 
-import android.net.ConnectivityManager
-
-import android.net.NetworkInfo
-import android.telephony.cdma.CdmaCellLocation
 import android.telephony.gsm.GsmCellLocation
 import android.util.Log
-import androidx.core.content.PermissionChecker
+import com.kmeoung.getnetwork.bean.Bean5GData
+import com.kmeoung.getnetwork.bean.BeanLteData
 import com.kmeoung.getnetwork.bean.CellularData
-import com.kmeoung.getnetwork.bean.DATA_TYPE
+import android.telephony.CellInfoLte
+import android.telephony.PhoneStateListener.LISTEN_SIGNAL_STRENGTHS
+import android.telephony.CellInfo
 
-import java.lang.reflect.Method
+import androidx.core.content.ContextCompat.getSystemService
+
+import android.content.Context.TELEPHONY_SERVICE
+
+import android.telephony.PhoneStateListener
 
 
 class CellularManager(private val context: Context) {
+
 
     private val telephonyManager: TelephonyManager =
         context.getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
@@ -35,8 +39,7 @@ class CellularManager(private val context: Context) {
         Context.LOCATION_SERVICE
     ) as LocationManager
 
-    private var cellularType: CELLULAR_TYPE = CELLULAR_TYPE.NONE
-
+    private var mSignalStrength: SignalStrengthListener? = null
 
     companion object {
         val REQUIRED_PERMISSION = arrayOf<String>(
@@ -44,8 +47,12 @@ class CellularManager(private val context: Context) {
             "android.permission.READ_PHONE_STATE"
         )
 
-        enum class CELLULAR_TYPE {
-            TYPE_3G, TYPE_LTE, TYPE_5G, NONE
+        /**
+         * Lte 4G
+         * Nr 5G
+         */
+        enum class NETWORK_TYPE {
+            LTE, NR
         }
     }
 
@@ -98,8 +105,16 @@ class CellularManager(private val context: Context) {
 
 
     @RequiresPermission(android.Manifest.permission.READ_PHONE_STATE)
-    fun getType(): String {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+    private fun getType(): String {
+        // todo : 버전이 낮은경우 데이터를 가져오기 위한 리스너
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            mSignalStrength = SignalStrengthListener()
+            telephonyManager.listen(
+                mSignalStrength,
+                PhoneStateListener.LISTEN_SIGNAL_STRENGTHS
+            )
+            return "LTE"
+        }else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             when (telephonyManager.dataNetworkType) {
                 TelephonyManager.NETWORK_TYPE_EDGE,
                 TelephonyManager.NETWORK_TYPE_GPRS,
@@ -117,8 +132,7 @@ class CellularManager(private val context: Context) {
                     return "3G"
                 TelephonyManager.NETWORK_TYPE_LTE -> {
                     return if (isNRConnected(
-                            context.getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager,
-                            context
+                            context.getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
                         )
                     ) "5G" else "LTE"
                 }
@@ -131,52 +145,238 @@ class CellularManager(private val context: Context) {
         return "Unknown"
     }
 
-
-    /**
-     * GET LTE RSRP
-     * checkPermission
-     * @return rsrp
-     */
-
-    @RequiresApi(Build.VERSION_CODES.O)
-    @RequiresPermission(android.Manifest.permission.ACCESS_FINE_LOCATION)
-    @Throws(Exception::class)
-    fun getLteRsrp(): Int {
-        val cellInfo = telephonyManager.allCellInfo[0]
-        val cellSignalStrengthLte = (cellInfo as CellInfoLte).cellSignalStrength
-        return cellSignalStrengthLte.rsrp
+    //10진수 -> 16진수
+    private fun DecToHex(dec: Long): String {
+        return String.format("%x", dec);
     }
 
-    /**
-     * GET 5G RSRP
-     * checkPermission
-     * @return csi rsrp
-     */
+    //16진수 -> 10진수
+    private fun HexToDec(hex: String): Int {
+        return Integer.parseInt(hex, 16);
+    }
 
-    @RequiresApi(Build.VERSION_CODES.Q)
-    @RequiresPermission(android.Manifest.permission.ACCESS_FINE_LOCATION)
-    fun get5GCsiRsrp(): Int {
-        val cellInfo = telephonyManager.allCellInfo[0]
-        val cellSignalStrengthNr: CellSignalStrengthNr =
-            ((cellInfo as CellInfoNr).cellSignalStrength as CellSignalStrengthNr)
-        return cellSignalStrengthNr.csiRsrp
+    @SuppressLint("MissingPermission")
+    fun getNodeBId(cid: Long): Int {
+        //16진수 cid
+        var cellidHex = DecToHex(cid);
+
+        //16진수 eNB
+        var eNBHex = cellidHex.substring(0, cellidHex.length - 2);
+
+        //10진수 eNB
+        return HexToDec(eNBHex)
     }
 
 
-    /**
-     * GET 5G RSRP
-     * checkPermission
-     * @return ss rsrp
-     */
+    @SuppressLint("MissingPermission")
+    fun getData(): Any? {
+        val cellInfos = telephonyManager.allCellInfo
+        for (cellInfo in cellInfos) {
+            var dbm: Int
 
-    @RequiresApi(Build.VERSION_CODES.Q)
-    @RequiresPermission(android.Manifest.permission.ACCESS_FINE_LOCATION)
-    fun get5GSsRsrp(): Int {
-        val cellInfo = telephonyManager.allCellInfo[0]
-        val cellSignalStrengthNr: CellSignalStrengthNr =
-            ((cellInfo as CellInfoNr).cellSignalStrength as CellSignalStrengthNr)
-        return cellSignalStrengthNr.ssRsrp
+            when {
+                getType() == "5G" -> {
+                    // 우리나라 5G 상용화 19년 4월 3일
+                    // Android Q 공개 날짜 19년 9월 3일
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        when (cellInfo) {
+                            is CellInfoNr -> {// CellInfoNr
+                                //- [ ] •5G (P (Primary), 수집된 모든 N (Neighbor) 구성, 측정 시간 동안 하나의 Cell ID 에 다수 데이터)
+                                //- [ ] 5G >
+                                //- [ ] (SS-)SINR,
+                                //- [ ] CQI,
+                                //- [ ] MCS
+
+                                var cqi = 0
+                                var mcs = 0
+
+                                dbm = cellInfo.cellSignalStrength.dbm
+                                var nci = (cellInfo.cellIdentity as CellIdentityNr).nci
+                                var pci = (cellInfo.cellIdentity as CellIdentityNr).pci
+                                var nrarfcn = (cellInfo.cellIdentity as CellIdentityNr).nrarfcn
+                                var rsrp =
+                                    (cellInfo.cellSignalStrength as CellSignalStrengthNr).ssRsrp
+                                var rsrq =
+                                    (cellInfo.cellSignalStrength as CellSignalStrengthNr).ssRsrq
+                                var sinr =
+                                    (cellInfo.cellSignalStrength as CellSignalStrengthNr).ssSinr
+
+                                return Bean5GData(
+                                    getNodeBId(nci),
+                                    getNodeBId(pci.toLong()),
+                                    dbm,
+                                    nci,
+                                    nrarfcn,
+                                    pci,
+                                    rsrp,
+                                    rsrq,
+                                    sinr,
+                                    cqi,
+                                    mcs
+                                )
+                            }
+                            is CellInfoLte -> { // CellInfoLte
+                                //- [ ] MCS
+                                var mcs: Int = 0
+
+                                dbm = cellInfo.cellSignalStrength.dbm
+                                var ci = cellInfo.cellIdentity.ci.toLong()
+                                var earfcn = cellInfo.cellIdentity.earfcn
+                                var pci = cellInfo.cellIdentity.pci
+                                var rsrp = cellInfo.cellSignalStrength.rsrp
+                                var rsrq = cellInfo.cellSignalStrength.rsrq
+                                var cqi = cellInfo.cellSignalStrength.cqi
+                                var sinr = cellInfo.cellSignalStrength.rssnr
+
+                                return BeanLteData(
+                                    getNodeBId(ci),
+                                    getNodeBId(pci.toLong()),
+                                    dbm,
+                                    ci,
+                                    earfcn,
+                                    pci,
+                                    rsrp,
+                                    rsrq,
+                                    sinr,
+                                    cqi,
+                                    mcs
+                                )
+                            }
+                        }
+                    }
+                }
+                getType() == "LTE" -> {
+                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+                        var cellInfoList: List<CellInfo>
+                        try {
+                            cellInfoList = telephonyManager.allCellInfo
+                        } catch (e: Exception) {
+                            Log.d(
+                                "SignalStrength",
+                                "+++++++++++++++++++++++++++++++++++++++++ null array spot 1: $e"
+                            )
+                            return null
+                        }
+
+
+                        try {
+                            for (cellInfo in cellInfoList) {
+                                if (cellInfo is CellInfoLte) {
+                                    // cast to CellInfoLte and call all the CellInfoLte methods you need
+                                    // gets RSRP cell signal strength:
+                                    var dbm = cellInfo.cellSignalStrength.dbm
+
+                                    // Gets the LTE cell indentity: (returns 28-bit Cell Identity, Integer.MAX_VALUE if unknown)
+                                    var ci = cellInfo.cellIdentity.ci
+                                    // Gets the LTE PCI: (returns Physical Cell Id 0..503, Integer.MAX_VALUE if unknown)
+                                    var pci = cellInfo.cellIdentity.pci
+                                    var earfcn = -9999
+                                    if (mSignalStrength != null) {
+                                        var mcs = 0
+                                        return BeanLteData(
+                                            getNodeBId(ci.toLong()),
+                                            getNodeBId(pci.toLong()),
+                                            dbm,
+                                            ci.toLong(),
+                                            earfcn,
+                                            pci,
+                                            (mSignalStrength!!.rsrp ?: "-9999").toInt(),
+                                            (mSignalStrength!!.rsrq ?: "-9999").toInt(),
+                                            (mSignalStrength!!.rssnr ?: "-9999").toInt(),
+                                            (mSignalStrength!!.cqi ?: "-9999").toInt(),
+                                            mcs
+                                        )
+                                    } else {
+                                        return null
+                                    }
+                                }
+                            }
+                        } catch (e: Exception) {
+                            Log.d("SignalStrength", "++++++++++++++++++++++ null array spot 2: $e")
+                            return null
+                        }
+
+
+                        return null
+                    } else if (cellInfo is CellInfoLte) { // CellInfoLte
+                        var mcs: Int = 0
+
+                        dbm = cellInfo.cellSignalStrength.dbm
+                        var ci = cellInfo.cellIdentity.ci.toLong()
+                        var earfcn = -9999
+                        var rsrp = -9999
+                        var rsrq = -9999
+                        var cqi = -9999
+                        var sinr = -9999
+
+                        // lte 상용화 시점 2004년
+                        // 안드로이드 N 버전 상용화 시점 2016년 8월 22
+
+                        earfcn = cellInfo.cellIdentity.earfcn
+                        rsrp = cellInfo.cellSignalStrength.rsrp
+                        rsrq = cellInfo.cellSignalStrength.rsrq
+                        cqi = cellInfo.cellSignalStrength.cqi
+                        sinr = cellInfo.cellSignalStrength.rssnr
+                        var pci = cellInfo.cellIdentity.pci
+
+
+                        return BeanLteData(
+                            getNodeBId(ci),
+                            getNodeBId(pci.toLong()),
+                            dbm,
+                            ci,
+                            earfcn,
+                            pci,
+                            rsrp,
+                            rsrq,
+                            sinr,
+                            cqi,
+                            mcs
+                        )
+                    }
+                }
+            }
+        }
+        return null
     }
+
+    private class SignalStrengthListener : PhoneStateListener() {
+//        The parts[] array will then contain these elements:
+//
+//        part[0] = "Signalstrength:"  _ignore this, it's just the title_
+//        parts[1] = GsmSignalStrength
+//        parts[2] = GsmBitErrorRate
+//        parts[3] = CdmaDbm
+//        parts[4] = CdmaEcio
+//        parts[5] = EvdoDbm
+//        parts[6] = EvdoEcio
+//        parts[7] = EvdoSnr
+//        parts[8] = LteSignalStrength
+//        parts[9] = LteRsrp
+//        parts[10] = LteRsrq
+//        parts[11] = LteRssnr
+//        parts[12] = LteCqi
+//        parts[13] = gsm|lte
+//        parts[14] = _not reall sure what this number is_
+
+        var signalStrength: String? = null
+        var rsrp: String? = null
+        var rsrq: String? = null
+        var rssnr: String? = null
+        var cqi: String? = null
+
+        override fun onSignalStrengthsChanged(ss: SignalStrength) {
+            val ssignal: String = ss.toString()
+            val parts = ssignal.split(" ").toTypedArray()
+
+            signalStrength = parts[8]
+            rsrp = parts[9]
+            rsrq = parts[10]
+            rssnr = parts[11]
+            cqi = parts[12]
+        }
+    }
+
 
     /**
      * 보통 사용하는 상용망 속도 기준
@@ -259,7 +459,7 @@ class CellularManager(private val context: Context) {
     /**
      * 5G 체크
      */
-    fun isNRConnected(telephonyManager: TelephonyManager, context: Context): Boolean {
+    fun isNRConnected(telephonyManager: TelephonyManager): Boolean {
 
         try {
             val obj = Class.forName(telephonyManager.javaClass.name)

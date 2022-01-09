@@ -72,7 +72,8 @@ class MainActivity : BaseActivity() {
         // 모바일 네트워크 먼저 로딩
         binding.btn.setOnClickListener { _ ->
             if (_dialog != null) _dialog!!.show()
-            getWifiInfo()
+//            getWifiInfo()
+            getCellularInfo()
         }
     }
 
