@@ -18,8 +18,9 @@ package com.kmeoung.getnetwork.bean
  * Ci = CELL ID
  */
 data class BeanLteData(
-    var gNBID_N : Int,
-    var gNBID_P : Int,
+    var currentNetworkType : String,
+    var eNBID_N : Int,
+    var eNBID_P : Int,
     var dbm: Int,
     var ci: Long,
     var earfcn: Int,
@@ -28,5 +29,5 @@ data class BeanLteData(
     var rsrq: Int,
     var sinr: Int,
     var cqi: Int,
-    var mcs: Int,
+    var mcs: Int?,
 )

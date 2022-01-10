@@ -33,8 +33,6 @@ import android.telephony.PhoneStateListener
 class CellularManager(private val context: Context) {
 
 
-    private val telephonyManager: TelephonyManager =
-        context.getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
     private val locationManager = context.getSystemService(
         Context.LOCATION_SERVICE
     ) as LocationManager
@@ -109,13 +107,14 @@ class CellularManager(private val context: Context) {
         // todo : 버전이 낮은경우 데이터를 가져오기 위한 리스너
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
             mSignalStrength = SignalStrengthListener()
+            val telephonyManager = context.getSystemService(TELEPHONY_SERVICE) as TelephonyManager
             telephonyManager.listen(
                 mSignalStrength,
                 PhoneStateListener.LISTEN_SIGNAL_STRENGTHS
             )
             return "LTE"
-        }else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            when (telephonyManager.dataNetworkType) {
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            when ((context.getSystemService(TELEPHONY_SERVICE) as TelephonyManager).dataNetworkType) {
                 TelephonyManager.NETWORK_TYPE_EDGE,
                 TelephonyManager.NETWORK_TYPE_GPRS,
                 TelephonyManager.NETWORK_TYPE_CDMA,
@@ -152,16 +151,16 @@ class CellularManager(private val context: Context) {
 
     //16진수 -> 10진수
     private fun HexToDec(hex: String): Int {
-        return Integer.parseInt(hex, 16);
+        return Integer.parseInt(hex, 16)
     }
 
     @SuppressLint("MissingPermission")
     fun getNodeBId(cid: Long): Int {
         //16진수 cid
-        var cellidHex = DecToHex(cid);
+        var cellidHex = DecToHex(cid)
 
         //16진수 eNB
-        var eNBHex = cellidHex.substring(0, cellidHex.length - 2);
+        var eNBHex = if(cellidHex.length > 2) cellidHex.substring(0, cellidHex.length - 2) else cellidHex
 
         //10진수 eNB
         return HexToDec(eNBHex)
@@ -169,13 +168,15 @@ class CellularManager(private val context: Context) {
 
 
     @SuppressLint("MissingPermission")
-    fun getData(): Any? {
-        val cellInfos = telephonyManager.allCellInfo
+    fun getData(): ArrayList<Any?> {
+        val cellInfos = (context.getSystemService(TELEPHONY_SERVICE) as TelephonyManager).allCellInfo
+
+        val array = ArrayList<Any?>()
         for (cellInfo in cellInfos) {
             var dbm: Int
-
+            val currentNetworkType = getType()
             when {
-                getType() == "5G" -> {
+                currentNetworkType == "5G" -> {
                     // 우리나라 5G 상용화 19년 4월 3일
                     // Android Q 공개 날짜 19년 9월 3일
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -188,7 +189,7 @@ class CellularManager(private val context: Context) {
                                 //- [ ] MCS
 
                                 var cqi = 0
-                                var mcs = 0
+                                var mcs : Int? = null
 
                                 dbm = cellInfo.cellSignalStrength.dbm
                                 var nci = (cellInfo.cellIdentity as CellIdentityNr).nci
@@ -200,24 +201,26 @@ class CellularManager(private val context: Context) {
                                     (cellInfo.cellSignalStrength as CellSignalStrengthNr).ssRsrq
                                 var sinr =
                                     (cellInfo.cellSignalStrength as CellSignalStrengthNr).ssSinr
-
-                                return Bean5GData(
-                                    getNodeBId(nci),
-                                    getNodeBId(pci.toLong()),
-                                    dbm,
-                                    nci,
-                                    nrarfcn,
-                                    pci,
-                                    rsrp,
-                                    rsrq,
-                                    sinr,
-                                    cqi,
-                                    mcs
+                                array.add(
+                                    Bean5GData(
+                                        currentNetworkType,
+                                        getNodeBId(nci),
+                                        getNodeBId(pci.toLong()),
+                                        dbm,
+                                        nci,
+                                        nrarfcn,
+                                        pci,
+                                        rsrp,
+                                        rsrq,
+                                        sinr,
+                                        cqi,
+                                        mcs
+                                    )
                                 )
                             }
                             is CellInfoLte -> { // CellInfoLte
                                 //- [ ] MCS
-                                var mcs: Int = 0
+                                var mcs : Int? = null
 
                                 dbm = cellInfo.cellSignalStrength.dbm
                                 var ci = cellInfo.cellIdentity.ci.toLong()
@@ -228,18 +231,21 @@ class CellularManager(private val context: Context) {
                                 var cqi = cellInfo.cellSignalStrength.cqi
                                 var sinr = cellInfo.cellSignalStrength.rssnr
 
-                                return BeanLteData(
-                                    getNodeBId(ci),
-                                    getNodeBId(pci.toLong()),
-                                    dbm,
-                                    ci,
-                                    earfcn,
-                                    pci,
-                                    rsrp,
-                                    rsrq,
-                                    sinr,
-                                    cqi,
-                                    mcs
+                                array.add(
+                                    BeanLteData(
+                                        currentNetworkType,
+                                        getNodeBId(ci),
+                                        getNodeBId(pci.toLong()),
+                                        dbm,
+                                        ci,
+                                        earfcn,
+                                        pci,
+                                        rsrp,
+                                        rsrq,
+                                        sinr,
+                                        cqi,
+                                        mcs
+                                    )
                                 )
                             }
                         }
@@ -247,33 +253,22 @@ class CellularManager(private val context: Context) {
                 }
                 getType() == "LTE" -> {
                     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
-                        var cellInfoList: List<CellInfo>
                         try {
-                            cellInfoList = telephonyManager.allCellInfo
-                        } catch (e: Exception) {
-                            Log.d(
-                                "SignalStrength",
-                                "+++++++++++++++++++++++++++++++++++++++++ null array spot 1: $e"
-                            )
-                            return null
-                        }
+                            if (cellInfo is CellInfoLte) {
+                                // cast to CellInfoLte and call all the CellInfoLte methods you need
+                                // gets RSRP cell signal strength:
+                                var dbm = cellInfo.cellSignalStrength.dbm
 
-
-                        try {
-                            for (cellInfo in cellInfoList) {
-                                if (cellInfo is CellInfoLte) {
-                                    // cast to CellInfoLte and call all the CellInfoLte methods you need
-                                    // gets RSRP cell signal strength:
-                                    var dbm = cellInfo.cellSignalStrength.dbm
-
-                                    // Gets the LTE cell indentity: (returns 28-bit Cell Identity, Integer.MAX_VALUE if unknown)
-                                    var ci = cellInfo.cellIdentity.ci
-                                    // Gets the LTE PCI: (returns Physical Cell Id 0..503, Integer.MAX_VALUE if unknown)
-                                    var pci = cellInfo.cellIdentity.pci
-                                    var earfcn = -9999
-                                    if (mSignalStrength != null) {
-                                        var mcs = 0
-                                        return BeanLteData(
+                                // Gets the LTE cell indentity: (returns 28-bit Cell Identity, Integer.MAX_VALUE if unknown)
+                                var ci = cellInfo.cellIdentity.ci
+                                // Gets the LTE PCI: (returns Physical Cell Id 0..503, Integer.MAX_VALUE if unknown)
+                                var pci = cellInfo.cellIdentity.pci
+                                var earfcn = -9999
+                                if (mSignalStrength != null) {
+                                    var mcs : Int? = null
+                                    array.add(
+                                        BeanLteData(
+                                            currentNetworkType,
                                             getNodeBId(ci.toLong()),
                                             getNodeBId(pci.toLong()),
                                             dbm,
@@ -286,20 +281,19 @@ class CellularManager(private val context: Context) {
                                             (mSignalStrength!!.cqi ?: "-9999").toInt(),
                                             mcs
                                         )
-                                    } else {
-                                        return null
-                                    }
+                                    )
+                                } else {
+                                    array.add(null)
                                 }
+                            } else {
+                                array.add(null)
                             }
                         } catch (e: Exception) {
                             Log.d("SignalStrength", "++++++++++++++++++++++ null array spot 2: $e")
-                            return null
+                            array.add(null)
                         }
-
-
-                        return null
                     } else if (cellInfo is CellInfoLte) { // CellInfoLte
-                        var mcs: Int = 0
+                        var mcs : Int? = null
 
                         dbm = cellInfo.cellSignalStrength.dbm
                         var ci = cellInfo.cellIdentity.ci.toLong()
@@ -320,24 +314,27 @@ class CellularManager(private val context: Context) {
                         var pci = cellInfo.cellIdentity.pci
 
 
-                        return BeanLteData(
-                            getNodeBId(ci),
-                            getNodeBId(pci.toLong()),
-                            dbm,
-                            ci,
-                            earfcn,
-                            pci,
-                            rsrp,
-                            rsrq,
-                            sinr,
-                            cqi,
-                            mcs
+                        array.add(
+                            BeanLteData(
+                                currentNetworkType,
+                                getNodeBId(ci),
+                                getNodeBId(pci.toLong()),
+                                dbm,
+                                ci,
+                                earfcn,
+                                pci,
+                                rsrp,
+                                rsrq,
+                                sinr,
+                                cqi,
+                                mcs
+                            )
                         )
                     }
                 }
             }
         }
-        return null
+        return array
     }
 
     private class SignalStrengthListener : PhoneStateListener() {
@@ -387,7 +384,7 @@ class CellularManager(private val context: Context) {
     @SuppressLint("MissingPermission")
     @RequiresPermission(android.Manifest.permission.ACCESS_FINE_LOCATION)
     fun getDbms(): ArrayList<CellularData> {
-        val cellInfos = telephonyManager.allCellInfo
+        val cellInfos = (context.getSystemService(TELEPHONY_SERVICE) as TelephonyManager).allCellInfo
         Log.d("TEST_11", getType())
 
         var array = ArrayList<CellularData>()
@@ -407,7 +404,7 @@ class CellularManager(private val context: Context) {
                                 pcid = (cellInfo.cellIdentity as CellIdentityNr).pci
                             } else {
                                 cid =
-                                    (telephonyManager.cellLocation as GsmCellLocation).cid.toLong()
+                                    ((context.getSystemService(TELEPHONY_SERVICE) as TelephonyManager).cellLocation as GsmCellLocation).cid.toLong()
                             }
                         }
                         is CellInfoLte -> { // CellInfoLte
@@ -417,7 +414,7 @@ class CellularManager(private val context: Context) {
                                 pcid = cellInfo.cellIdentity.pci
                             } else {
                                 cid =
-                                    (telephonyManager.cellLocation as GsmCellLocation).cid.toLong()
+                                    ((context.getSystemService(TELEPHONY_SERVICE) as TelephonyManager).cellLocation as GsmCellLocation).cid.toLong()
                             }
                         }
                         is CellInfoGsm -> {
@@ -427,7 +424,7 @@ class CellularManager(private val context: Context) {
                                 pcid = cellInfo.cellIdentity.psc
                             } else {
                                 cid =
-                                    (telephonyManager.cellLocation as GsmCellLocation).cid.toLong()
+                                    ((context.getSystemService(TELEPHONY_SERVICE) as TelephonyManager).cellLocation as GsmCellLocation).cid.toLong()
                             }
                         }
                     }
@@ -438,7 +435,7 @@ class CellularManager(private val context: Context) {
                         cid = cellInfo.cellIdentity.ci.toLong()
                         pcid = cellInfo.cellIdentity.pci
                     } else {
-                        cid = (telephonyManager.cellLocation as GsmCellLocation).cid.toLong()
+                        cid = ((context.getSystemService(TELEPHONY_SERVICE) as TelephonyManager).cellLocation as GsmCellLocation).cid.toLong()
                     }
                 }
                 cellInfo is CellInfoGsm -> {
@@ -447,7 +444,7 @@ class CellularManager(private val context: Context) {
                         cid = cellInfo.cellIdentity.cid.toLong()
                         pcid = cellInfo.cellIdentity.psc
                     } else {
-                        cid = (telephonyManager.cellLocation as GsmCellLocation).cid.toLong()
+                        cid = ((context.getSystemService(TELEPHONY_SERVICE) as TelephonyManager).cellLocation as GsmCellLocation).cid.toLong()
                     }
                 }
             }

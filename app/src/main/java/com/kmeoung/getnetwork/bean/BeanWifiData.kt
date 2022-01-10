@@ -11,4 +11,14 @@ package com.kmeoung.getnetwork.bean
  *  info Link : https://developer.android.com/reference/android/net/wifi/ScanResult
  *
  */
-data class BeanWifiData(var BSSID: String, var SSID: String, var frequency: Int,var channelWidth:Int, var rssi : Int)
+data class BeanWifiData(
+    var BSSID: String,
+    var SSID: String,
+    var frequency: Int,
+    var channelWidth: Int,
+    var rssi: Int,
+    var standard: Int?,
+    var bandWidth: Int?,
+    var CINR: Int?,
+    var MCS: Int?
+)

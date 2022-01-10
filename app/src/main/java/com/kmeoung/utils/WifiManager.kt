@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.location.LocationManager
+import android.net.wifi.WifiInfo
 import android.net.wifi.WifiManager
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
@@ -42,6 +43,10 @@ class WifiManager(private var context: Context) {
         // 시스템 > 설정 > 위치 및 보안 > 무선 네트워크 사용 여부 체크.
         return locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
 
+    }
+
+    fun getConnectionInfo() : WifiInfo {
+        return wifiManager.connectionInfo
     }
 
     /**

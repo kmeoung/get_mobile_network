@@ -21,6 +21,7 @@ package com.kmeoung.getnetwork.bean
  * Ci = CELL ID
  */
 data class Bean5GData(
+    var currentNetworkType : String,
     var gNBID_N : Int,
     var gNBID_P : Int,
     var dbm:Int,
@@ -31,5 +32,5 @@ data class Bean5GData(
     var ss_rsrq: Int,
     var ss_sinr: Int,
     var cqi: Int,
-    var mcs: Int,
+    var mcs: Int?,
 )
