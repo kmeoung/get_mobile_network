@@ -52,6 +52,8 @@ class CellularManager(private val context: Context) {
         enum class NETWORK_TYPE {
             LTE, NR
         }
+
+        val DEFAULT_DATA = -999
     }
 
     /**
@@ -263,7 +265,7 @@ class CellularManager(private val context: Context) {
                                 var ci = cellInfo.cellIdentity.ci
                                 // Gets the LTE PCI: (returns Physical Cell Id 0..503, Integer.MAX_VALUE if unknown)
                                 var pci = cellInfo.cellIdentity.pci
-                                var earfcn = -9999
+                                var earfcn = DEFAULT_DATA
                                 if (mSignalStrength != null) {
                                     var mcs : Int? = null
                                     array.add(
@@ -275,10 +277,10 @@ class CellularManager(private val context: Context) {
                                             ci.toLong(),
                                             earfcn,
                                             pci,
-                                            (mSignalStrength!!.rsrp ?: "-9999").toInt(),
-                                            (mSignalStrength!!.rsrq ?: "-9999").toInt(),
-                                            (mSignalStrength!!.rssnr ?: "-9999").toInt(),
-                                            (mSignalStrength!!.cqi ?: "-9999").toInt(),
+                                            (mSignalStrength!!.rsrp ?: "$DEFAULT_DATA").toInt(),
+                                            (mSignalStrength!!.rsrq ?: "$DEFAULT_DATA").toInt(),
+                                            (mSignalStrength!!.rssnr ?: "$DEFAULT_DATA").toInt(),
+                                            (mSignalStrength!!.cqi ?: "$DEFAULT_DATA").toInt(),
                                             mcs
                                         )
                                     )
@@ -297,11 +299,11 @@ class CellularManager(private val context: Context) {
 
                         dbm = cellInfo.cellSignalStrength.dbm
                         var ci = cellInfo.cellIdentity.ci.toLong()
-                        var earfcn = -9999
-                        var rsrp = -9999
-                        var rsrq = -9999
-                        var cqi = -9999
-                        var sinr = -9999
+                        var earfcn = DEFAULT_DATA
+                        var rsrp = DEFAULT_DATA
+                        var rsrq = DEFAULT_DATA
+                        var cqi = DEFAULT_DATA
+                        var sinr = DEFAULT_DATA
 
                         // lte 상용화 시점 2004년
                         // 안드로이드 N 버전 상용화 시점 2016년 8월 22

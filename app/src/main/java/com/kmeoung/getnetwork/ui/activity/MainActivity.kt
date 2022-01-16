@@ -29,6 +29,16 @@ import com.kmeoung.utils.WifiManager
 import com.kmeoung.utils.WriteTextManager
 import java.text.SimpleDateFormat
 import java.util.*
+import android.telephony.TelephonyManager
+
+import android.telephony.SubscriptionInfo
+
+import android.telephony.SubscriptionManager
+
+import android.R.attr.name
+
+
+
 
 class MainActivity : BaseActivity() {
 
@@ -73,6 +83,8 @@ class MainActivity : BaseActivity() {
         WriteTextManager.requestPermissions(this@MainActivity, REQUEST_PERMISSION_GRANT)
 
 
+        Toast.makeText(this@MainActivity,getSimOperator(),Toast.LENGTH_SHORT).show()
+
         // 모바일 네트워크 먼저 로딩
         binding.btn.setOnClickListener { _ ->
             if (_dialog != null) _dialog!!.show()
@@ -90,6 +102,25 @@ class MainActivity : BaseActivity() {
         _recyclerAdapter = BaseRecyclerViewAdapter(rvListener)
         binding.rvList.adapter = mAdapter
         binding.rvList.layoutManager = LinearLayoutManager(this@MainActivity)
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun getSimOperator():String {
+        //for dual sim mobile
+        val localSubscriptionManager = SubscriptionManager.from(this)
+        return if (localSubscriptionManager.activeSubscriptionInfoCount > 1) {
+            //if there are two sims in dual sim mobile
+            val localList: List<*> = localSubscriptionManager.activeSubscriptionInfoList
+            val simInfo = localList[0] as SubscriptionInfo
+            val simInfo1 = localList[1] as SubscriptionInfo
+            simInfo.displayName.toString()
+    //                val sim2 = simInfo1.displayName.toString()
+        } else {
+            //if there is 1 sim in dual sim mobile
+            val tManager = baseContext
+                .getSystemService(TELEPHONY_SERVICE) as TelephonyManager
+            tManager.networkOperatorName
+        }
     }
 
     /**
@@ -174,7 +205,7 @@ class MainActivity : BaseActivity() {
                                 var bssid: String
                                 var ssid: String
                                 var frequency: Int
-                                var channelWidth: Int
+                                var channelWidth: String
                                 var rssi: Int
                                 var standard: Int? = null
 
@@ -182,7 +213,14 @@ class MainActivity : BaseActivity() {
                                     bssid = connectWifi.bssid
                                     ssid = connectWifi.ssid
                                     frequency = connectWifi.frequency
-                                    channelWidth = result.channelWidth
+                                    channelWidth = when(result.channelWidth){
+                                        ScanResult.CHANNEL_WIDTH_160MHZ->"160"
+                                        ScanResult.CHANNEL_WIDTH_20MHZ->"20"
+                                        ScanResult.CHANNEL_WIDTH_40MHZ->"40"
+                                        ScanResult.CHANNEL_WIDTH_80MHZ->"80"
+                                        ScanResult.CHANNEL_WIDTH_80MHZ_PLUS_MHZ->"80+"
+                                        else->""
+                                    }
                                     rssi = result.level
                                     // CINR = carrier to interference and noise ratio
                                     // MCS = Modulation & Conding Scheme
@@ -193,7 +231,14 @@ class MainActivity : BaseActivity() {
                                     bssid = result.BSSID
                                     ssid = result.SSID
                                     frequency = result.frequency
-                                    channelWidth = result.channelWidth
+                                    channelWidth = when(result.channelWidth){
+                                        ScanResult.CHANNEL_WIDTH_160MHZ->"160"
+                                        ScanResult.CHANNEL_WIDTH_20MHZ->"20"
+                                        ScanResult.CHANNEL_WIDTH_40MHZ->"40"
+                                        ScanResult.CHANNEL_WIDTH_80MHZ->"80"
+                                        ScanResult.CHANNEL_WIDTH_80MHZ_PLUS_MHZ->"80+"
+                                        else->""
+                                    }
                                     rssi = result.level
                                 }
 
@@ -215,7 +260,6 @@ class MainActivity : BaseActivity() {
                                     wifiData
                                 )
                             }
-
                             saveLog()
                         }
 
