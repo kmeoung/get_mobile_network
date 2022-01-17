@@ -16,7 +16,7 @@ data class BeanWifiData(
     var SSID: String,
     var frequency: Int,
     var channelWidth: String,
-    var rssi: Int,
+    var rssi: Int?,
     var standard: Int?,
     var bandWidth: Int?,
     var CINR: Int?,

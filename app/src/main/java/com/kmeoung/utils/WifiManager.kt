@@ -7,11 +7,14 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.location.LocationManager
+import android.net.wifi.ScanResult
 import android.net.wifi.WifiInfo
 import android.net.wifi.WifiManager
+import android.os.Build
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import com.kmeoung.getnetwork.bean.BeanWifiData
 
 /**
  * 현재 와이파이 체크
@@ -45,7 +48,7 @@ class WifiManager(private var context: Context) {
 
     }
 
-    fun getConnectionInfo() : WifiInfo {
+    fun getConnectionInfo(): WifiInfo {
         return wifiManager.connectionInfo
     }
 
@@ -66,7 +69,63 @@ class WifiManager(private var context: Context) {
                 val success = intent.getBooleanExtra(WifiManager.EXTRA_RESULTS_UPDATED, false)
                 if (success) {
                     val results = wifiManager.scanResults
-                    if (wifiListener != null) wifiListener!!.scanSuccess(results)
+                    val connectWifi = wifiManager.connectionInfo
+                    for (result in results) {
+                        var bssid: String
+                        var ssid: String
+                        var frequency: Int
+                        var channelWidth: String
+                        var rssi: Int
+                        var standard: Int? = null
+
+                        if (result.BSSID == connectWifi.bssid) {
+                            bssid = connectWifi.bssid
+                            ssid = connectWifi.ssid
+                            frequency = connectWifi.frequency
+                            channelWidth = when (result.channelWidth) {
+                                ScanResult.CHANNEL_WIDTH_160MHZ -> "160"
+                                ScanResult.CHANNEL_WIDTH_20MHZ -> "20"
+                                ScanResult.CHANNEL_WIDTH_40MHZ -> "40"
+                                ScanResult.CHANNEL_WIDTH_80MHZ -> "80"
+                                ScanResult.CHANNEL_WIDTH_80MHZ_PLUS_MHZ -> "80+"
+                                else -> ""
+                            }
+                            rssi = result.level
+                            // CINR = carrier to interference and noise ratio
+                            // MCS = Modulation & Conding Scheme
+                            // 30 이상에서 가져오기 가능
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
+                                standard = connectWifi.wifiStandard
+                        } else {
+                            bssid = result.BSSID
+                            ssid = result.SSID
+                            frequency = result.frequency
+                            channelWidth = when (result.channelWidth) {
+                                ScanResult.CHANNEL_WIDTH_160MHZ -> "160"
+                                ScanResult.CHANNEL_WIDTH_20MHZ -> "20"
+                                ScanResult.CHANNEL_WIDTH_40MHZ -> "40"
+                                ScanResult.CHANNEL_WIDTH_80MHZ -> "80"
+                                ScanResult.CHANNEL_WIDTH_80MHZ_PLUS_MHZ -> "80+"
+                                else -> ""
+                            }
+                            rssi = result.level
+                        }
+
+
+                        var wifiData = BeanWifiData(
+                            bssid,
+                            if (ssid.trim().isEmpty()) "[Secret WIFI]" else ssid,
+                            frequency,
+                            channelWidth,
+                            rssi,
+                            standard,
+                            bandWidth = null,
+                            CINR = null,
+                            MCS = null
+                        )
+                        if (wifiListener != null) wifiListener!!.scanSuccess(wifiData)
+                    }
+                    if (wifiListener != null) wifiListener!!.scanEnded(results)
                 } else {
                     val results = wifiManager.scanResults
                     if (wifiListener != null) wifiListener!!.scanFailure(results)
@@ -77,6 +136,7 @@ class WifiManager(private var context: Context) {
 
         wifiManager.connectionInfo
     }
+
 
     /**
      * 필수 권한 확인

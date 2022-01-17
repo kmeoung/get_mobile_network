@@ -38,8 +38,6 @@ import android.telephony.SubscriptionManager
 import android.R.attr.name
 
 
-
-
 class MainActivity : BaseActivity() {
 
     companion object {
@@ -67,6 +65,7 @@ class MainActivity : BaseActivity() {
     var startDate: String = ""
     var endDate: String = ""
 
+
     // TODO : temp
     private var _dialog: ProgressDialog? = null
 
@@ -81,9 +80,6 @@ class MainActivity : BaseActivity() {
         initAdapter()
 
         WriteTextManager.requestPermissions(this@MainActivity, REQUEST_PERMISSION_GRANT)
-
-
-        Toast.makeText(this@MainActivity,getSimOperator(),Toast.LENGTH_SHORT).show()
 
         // 모바일 네트워크 먼저 로딩
         binding.btn.setOnClickListener { _ ->
@@ -105,7 +101,7 @@ class MainActivity : BaseActivity() {
     }
 
     @SuppressLint("MissingPermission")
-    private fun getSimOperator():String {
+    private fun getSimOperator(): String {
         //for dual sim mobile
         val localSubscriptionManager = SubscriptionManager.from(this)
         return if (localSubscriptionManager.activeSubscriptionInfoCount > 1) {
@@ -114,7 +110,7 @@ class MainActivity : BaseActivity() {
             val simInfo = localList[0] as SubscriptionInfo
             val simInfo1 = localList[1] as SubscriptionInfo
             simInfo.displayName.toString()
-    //                val sim2 = simInfo1.displayName.toString()
+            //                val sim2 = simInfo1.displayName.toString()
         } else {
             //if there is 1 sim in dual sim mobile
             val tManager = baseContext
@@ -190,76 +186,13 @@ class MainActivity : BaseActivity() {
                 if (_dialog != null) _dialog!!.show()
                 try {
                     mWifiManager.scanStart(object : IOWifiListener {
-                        override fun scanSuccess(results: List<ScanResult>) {
+                        override fun scanSuccess(wifiData: BeanWifiData) {
                             if (_dialog != null && _dialog!!.isShowing) _dialog!!.dismiss()
-                            Toast.makeText(
-                                this@MainActivity,
-                                "Wifi Scan Success",
-                                Toast.LENGTH_SHORT
-                            )
-                                .show()
                             Log.d(TAG, "Wifi Scan Success")
-                            val connectWifi = mWifiManager.getConnectionInfo()
-                            for (result in results) {
+                            mAdapter.add(wifiData)
+                        }
 
-                                var bssid: String
-                                var ssid: String
-                                var frequency: Int
-                                var channelWidth: String
-                                var rssi: Int
-                                var standard: Int? = null
-
-                                if (result.BSSID == connectWifi.bssid) {
-                                    bssid = connectWifi.bssid
-                                    ssid = connectWifi.ssid
-                                    frequency = connectWifi.frequency
-                                    channelWidth = when(result.channelWidth){
-                                        ScanResult.CHANNEL_WIDTH_160MHZ->"160"
-                                        ScanResult.CHANNEL_WIDTH_20MHZ->"20"
-                                        ScanResult.CHANNEL_WIDTH_40MHZ->"40"
-                                        ScanResult.CHANNEL_WIDTH_80MHZ->"80"
-                                        ScanResult.CHANNEL_WIDTH_80MHZ_PLUS_MHZ->"80+"
-                                        else->""
-                                    }
-                                    rssi = result.level
-                                    // CINR = carrier to interference and noise ratio
-                                    // MCS = Modulation & Conding Scheme
-                                    // 30 이상에서 가져오기 가능
-                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
-                                        standard = connectWifi.wifiStandard
-                                } else {
-                                    bssid = result.BSSID
-                                    ssid = result.SSID
-                                    frequency = result.frequency
-                                    channelWidth = when(result.channelWidth){
-                                        ScanResult.CHANNEL_WIDTH_160MHZ->"160"
-                                        ScanResult.CHANNEL_WIDTH_20MHZ->"20"
-                                        ScanResult.CHANNEL_WIDTH_40MHZ->"40"
-                                        ScanResult.CHANNEL_WIDTH_80MHZ->"80"
-                                        ScanResult.CHANNEL_WIDTH_80MHZ_PLUS_MHZ->"80+"
-                                        else->""
-                                    }
-                                    rssi = result.level
-                                }
-
-
-                                var wifiData = BeanWifiData(
-                                    bssid,
-                                    if (ssid.trim().isEmpty()) "[Secret WIFI]" else ssid,
-                                    frequency,
-                                    channelWidth,
-                                    rssi,
-                                    standard,
-                                    bandWidth = null,
-                                    CINR = null,
-                                    MCS = null
-                                )
-
-
-                                mAdapter.add(
-                                    wifiData
-                                )
-                            }
+                        override fun scanEnded(results: List<ScanResult>) {
                             saveLog()
                         }
 
@@ -341,34 +274,36 @@ class MainActivity : BaseActivity() {
                         is BeanLteData -> {
                             llBg.setBackgroundColor(getColor(R.color.teal_200))
                             val bean = mAdapter.get(i) as BeanLteData
-                            tvTitle.text = """${bean.currentNetworkType}
-                                |eNB_ID(N) : ${bean.eNBID_N}
-                                |eNB_ID(P) : ${bean.eNBID_P}
-                                |EARFCN : ${bean.earfcn}
-                                |CI : ${bean.ci}
-                                |PCI : ${bean.pci}
-                                |RSRP : ${bean.rsrp}
-                                |RSRQ : ${bean.rsrq}
-                                |SINR : ${bean.sinr}
-                                |CQI : ${bean.cqi}
-                                |MCS : ${bean.mcs}
-                            """.trimMargin()
+                            var data = ""
+                            data += "${bean.currentNetworkType}\n"
+                            if (bean.eNBID_N != 0 && bean.eNBID_N != Int.MAX_VALUE) data += "eNB_ID(N) : ${bean.eNBID_N}\n"
+                            if (bean.eNBID_P != 0 && bean.eNBID_P != Int.MAX_VALUE) data += "eNB_ID(P) : ${bean.eNBID_P}\n"
+                            if (bean.earfcn != 0 && bean.earfcn != Int.MAX_VALUE) data += "EARFCN : ${bean.earfcn}\n"
+                            if (bean.ci != 0L && bean.ci != Long.MAX_VALUE) data += "CI : ${bean.ci}\n"
+                            if (bean.pci != 0 && bean.pci != Int.MAX_VALUE) data += "PCI : ${bean.pci}\n"
+                            if (bean.rsrp != 0 && bean.rsrp != Int.MAX_VALUE) data += "RSRP : ${bean.rsrp}\n"
+                            if (bean.rsrq != 0 && bean.rsrq != Int.MAX_VALUE) data += "RSRQ : ${bean.rsrq}\n"
+                            if (bean.sinr != 0 && bean.sinr != Int.MAX_VALUE) data += "SINR : ${bean.sinr}\n"
+                            if (bean.cqi != 0 && bean.cqi != Int.MAX_VALUE) data += "CQI : ${bean.cqi}\n"
+                            if (bean.mcs != null && bean.mcs != 0 && bean.mcs != Int.MAX_VALUE) data += "MCS : ${bean.mcs}\n"
+                            tvTitle.text = data
                         }
                         is Bean5GData -> {
                             llBg.setBackgroundColor(getColor(R.color.teal_700))
                             val bean = mAdapter.get(i) as Bean5GData
-                            tvTitle.text = """${bean.currentNetworkType}
-                                |gNB_ID(N) : ${bean.gNBID_N}
-                                |gNB_ID(P) : ${bean.gNBID_P}
-                                |NR-ARFCN : ${bean.nr_earfcn}
-                                |NCI : ${bean.nci}
-                                |PCI : ${bean.pci}
-                                |SS-RSRP : ${bean.ss_rsrp}
-                                |SS-RSRQ : ${bean.ss_rsrq}
-                                |SS-SINR : ${bean.ss_sinr}
-                                |CQI : ${bean.cqi}
-                                |MCS : ${bean.mcs}
-                            """.trimMargin()
+                            var data = ""
+                            data += "${bean.currentNetworkType}\n"
+                            if (bean.gNBID_N != 0 && bean.gNBID_N != Int.MAX_VALUE) data += "gNB_ID(N) : ${bean.gNBID_N}\n"
+                            if (bean.gNBID_P != 0 && bean.gNBID_P != Int.MAX_VALUE) data += "gNB_ID(P) : ${bean.gNBID_P}\n"
+                            if (bean.nr_earfcn != 0 && bean.nr_earfcn != Int.MAX_VALUE) data += "NR-ARFCN : ${bean.nr_earfcn}\n"
+                            if (bean.nci != 0L && bean.nci != Long.MAX_VALUE) data += "NCI : ${bean.nci}\n"
+                            if (bean.pci != 0 && bean.pci != Int.MAX_VALUE) data += "PCI : ${bean.pci}\n"
+                            if (bean.ss_rsrp != 0 && bean.ss_rsrp != Int.MAX_VALUE) data += "SS-RSRP : ${bean.ss_rsrp}\n"
+                            if (bean.ss_rsrq != 0 && bean.ss_rsrq != Int.MAX_VALUE) data += "SS-RSRQ : ${bean.ss_rsrq}\n"
+                            if (bean.ss_sinr != 0 && bean.ss_sinr != Int.MAX_VALUE) data += "SS-SINR : ${bean.ss_sinr}\n"
+                            if (bean.cqi != 0 && bean.cqi != Int.MAX_VALUE) data += "CQI : ${bean.cqi}\n"
+                            if (bean.mcs != null && bean.mcs != 0 && bean.mcs != Int.MAX_VALUE) data += "MCS : ${bean.mcs}\n"
+                            tvTitle.text = data
                         }
                     }
 
@@ -377,17 +312,18 @@ class MainActivity : BaseActivity() {
                 TYPE_WIFI -> {
                     val bean = mAdapter.get(i) as BeanWifiData
                     llBg.setBackgroundColor(getColor(R.color.yellow))
-                    tvTitle.text = """WIFI
-                        |BSSID : ${bean.BSSID}
-                        |SSID : ${bean.SSID}
-                        |Frequency : ${bean.frequency}
-                        |BandWidth : ${bean.bandWidth}
-                        |Channel : ${bean.channelWidth}
-                        |RSSI : ${bean.rssi}
-                        |CINR : ${bean.CINR}
-                        |MCS : ${bean.MCS}
-                        |Standard : ${bean.standard}
-                    """.trimMargin()
+                    var data = ""
+                    data += "WIFI\n"
+                    if (bean.BSSID.isNotEmpty()) data += "BSSID : ${bean.BSSID}\n"
+                    if (bean.SSID.isNotEmpty()) data += "SSID : ${bean.SSID}\n"
+                    if (bean.frequency != 0 && bean.frequency != Int.MAX_VALUE) data += "Frequency : ${bean.frequency}\n"
+                    if (bean.bandWidth != null && bean.bandWidth != 0 && bean.bandWidth != Int.MAX_VALUE) data += "BandWidth : ${bean.bandWidth}\n"
+                    if (bean.channelWidth.isNotEmpty()) data += "Channel : ${bean.channelWidth}\n"
+                    if (bean.rssi != null && bean.rssi != 0 && bean.rssi != Int.MAX_VALUE) data += "RSSI : ${bean.rssi}\n"
+                    if (bean.CINR != null && bean.CINR != 0 && bean.CINR != Int.MAX_VALUE) data += "CINR : ${bean.CINR}\n"
+                    if (bean.MCS != null && bean.MCS != 0 && bean.MCS != Int.MAX_VALUE) data += "MCS : ${bean.MCS}\n"
+                    if (bean.standard != null && bean.standard != 0 && bean.standard != Int.MAX_VALUE) data += "Standard : ${bean.standard}\n"
+                    tvTitle.text = data
                 }
             }
 
@@ -399,12 +335,18 @@ class MainActivity : BaseActivity() {
         }
     }
 
+    @SuppressLint("MissingPermission")
     fun saveLog() {
         cal = Calendar.getInstance()
         endDate = sdf.format(cal!!.time)
         // TODO : 데이터 로그 저장
 
+        val conInfo = mWifiManager.getConnectionInfo()
+
+
         var logData = ""
+        logData += "Mac Address : ${conInfo.macAddress} \n"
+        logData += "Sim Operator : ${getSimOperator()}\n"
         logData += "Start Time : $startDate \n"
         logData += "End Time : $endDate \n"
         for (data in mAdapter.getList()) {
@@ -413,47 +355,89 @@ class MainActivity : BaseActivity() {
             when (data) {
                 is BeanLteData -> {
                     val bean = data as BeanLteData
-                    logData += """${bean.currentNetworkType}
-                                |eNB_ID(N) : ${bean.eNBID_N}
-                                |eNB_ID(P) : ${bean.eNBID_P}
-                                |EARFCN : ${bean.earfcn}
-                                |CI : ${bean.ci}
-                                |PCI : ${bean.pci}
-                                |RSRP : ${bean.rsrp}
-                                |RSRQ : ${bean.rsrq}
-                                |SINR : ${bean.sinr}
-                                |CQI : ${bean.cqi}
-                                |MCS : ${bean.mcs}
-                            """.trimMargin()
+//                    logData += """${bean.currentNetworkType}
+//                                |eNB_ID(N) : ${bean.eNBID_N}
+//                                |eNB_ID(P) : ${bean.eNBID_P}
+//                                |EARFCN : ${bean.earfcn}
+//                                |CI : ${bean.ci}
+//                                |PCI : ${bean.pci}
+//                                |RSRP : ${bean.rsrp}
+//                                |RSRQ : ${bean.rsrq}
+//                                |SINR : ${bean.sinr}
+//                                |CQI : ${bean.cqi}
+//                                |MCS : ${bean.mcs}
+//                            """.trimMargin()
+
+                    var data = ""
+                    data += "${bean.currentNetworkType}\n"
+                    if (bean.eNBID_N != 0 && bean.eNBID_N != Int.MAX_VALUE) data += "eNB_ID(N) : ${bean.eNBID_N}\n"
+                    if (bean.eNBID_P != 0 && bean.eNBID_P != Int.MAX_VALUE) data += "eNB_ID(P) : ${bean.eNBID_P}\n"
+                    if (bean.earfcn != 0 && bean.earfcn != Int.MAX_VALUE) data += "EARFCN : ${bean.earfcn}\n"
+                    if (bean.ci != 0L && bean.ci != Long.MAX_VALUE) data += "CI : ${bean.ci}\n"
+                    if (bean.pci != 0 && bean.pci != Int.MAX_VALUE) data += "PCI : ${bean.pci}\n"
+                    if (bean.rsrp != 0 && bean.rsrp != Int.MAX_VALUE) data += "RSRP : ${bean.rsrp}\n"
+                    if (bean.rsrq != 0 && bean.rsrq != Int.MAX_VALUE) data += "RSRQ : ${bean.rsrq}\n"
+                    if (bean.sinr != 0 && bean.sinr != Int.MAX_VALUE) data += "SINR : ${bean.sinr}\n"
+                    if (bean.cqi != 0 && bean.cqi != Int.MAX_VALUE) data += "CQI : ${bean.cqi}\n"
+                    if (bean.mcs != null && bean.mcs != 0 && bean.mcs != Int.MAX_VALUE) data += "MCS : ${bean.mcs}\n"
+                    logData += data
                 }
                 is Bean5GData -> {
                     val bean = data as Bean5GData
-                    logData += """${bean.currentNetworkType}
-                                |gNB_ID(N) : ${bean.gNBID_N}
-                                |gNB_ID(P) : ${bean.gNBID_P}
-                                |NR-ARFCN : ${bean.nr_earfcn}
-                                |NCI : ${bean.nci}
-                                |PCI : ${bean.pci}
-                                |SS-RSRP : ${bean.ss_rsrp}
-                                |SS-RSRQ : ${bean.ss_rsrq}
-                                |SS-SINR : ${bean.ss_sinr}
-                                |CQI : ${bean.cqi}
-                                |MCS : ${bean.mcs}
-                            """.trimMargin()
+//                    logData += """${bean.currentNetworkType}
+//                                |gNB_ID(N) : ${bean.gNBID_N}
+//                                |gNB_ID(P) : ${bean.gNBID_P}
+//                                |NR-ARFCN : ${bean.nr_earfcn}
+//                                |NCI : ${bean.nci}
+//                                |PCI : ${bean.pci}
+//                                |SS-RSRP : ${bean.ss_rsrp}
+//                                |SS-RSRQ : ${bean.ss_rsrq}
+//                                |SS-SINR : ${bean.ss_sinr}
+//                                |CQI : ${bean.cqi}
+//                                |MCS : ${bean.mcs}
+//                            """.trimMargin()
+
+                    var data = ""
+                    data += "${bean.currentNetworkType}\n"
+                    if (bean.gNBID_N != 0 && bean.gNBID_N != Int.MAX_VALUE) data += "gNB_ID(N) : ${bean.gNBID_N}\n"
+                    if (bean.gNBID_P != 0 && bean.gNBID_P != Int.MAX_VALUE) data += "gNB_ID(P) : ${bean.gNBID_P}\n"
+                    if (bean.nr_earfcn != 0 && bean.nr_earfcn != Int.MAX_VALUE) data += "NR-ARFCN : ${bean.nr_earfcn}\n"
+                    if (bean.nci != 0L && bean.nci != Long.MAX_VALUE) data += "NCI : ${bean.nci}\n"
+                    if (bean.pci != 0 && bean.pci != Int.MAX_VALUE) data += "PCI : ${bean.pci}\n"
+                    if (bean.ss_rsrp != 0 && bean.ss_rsrp != Int.MAX_VALUE) data += "SS-RSRP : ${bean.ss_rsrp}\n"
+                    if (bean.ss_rsrq != 0 && bean.ss_rsrq != Int.MAX_VALUE) data += "SS-RSRQ : ${bean.ss_rsrq}\n"
+                    if (bean.ss_sinr != 0 && bean.ss_sinr != Int.MAX_VALUE) data += "SS-SINR : ${bean.ss_sinr}\n"
+                    if (bean.cqi != 0 && bean.cqi != Int.MAX_VALUE) data += "CQI : ${bean.cqi}\n"
+                    if (bean.mcs != null && bean.mcs != 0 && bean.mcs != Int.MAX_VALUE) data += "MCS : ${bean.mcs}\n"
+                    logData += data
                 }
                 is BeanWifiData -> {
                     val bean = data as BeanWifiData
-                    logData += """WIFI
-                        |BSSID : ${bean.BSSID}
-                        |SSID : ${bean.SSID}
-                        |Frequency : ${bean.frequency}
-                        |BandWidth : ${bean.bandWidth}
-                        |Channel : ${bean.channelWidth}
-                        |RSSI : ${bean.rssi}
-                        |CINR : ${bean.CINR}
-                        |MCS : ${bean.MCS}
-                        |Standard : ${bean.standard}
-                    """.trimMargin()
+//                    logData += """WIFI
+//                        |BSSID : ${bean.BSSID}
+//                        |SSID : ${bean.SSID}
+//                        |Frequency : ${bean.frequency}
+//                        |BandWidth : ${bean.bandWidth}
+//                        |Channel : ${bean.channelWidth}
+//                        |RSSI : ${bean.rssi}
+//                        |CINR : ${bean.CINR}
+//                        |MCS : ${bean.MCS}
+//                        |Standard : ${bean.standard}
+//                    """.trimMargin()
+
+                    var data = ""
+                    data += "WIFI\n"
+                    if (bean.BSSID.isNotEmpty()) data += "BSSID : ${bean.BSSID}\n"
+                    if (bean.SSID.isNotEmpty()) data += "SSID : ${bean.SSID}\n"
+                    if (bean.frequency != 0 && bean.frequency != Int.MAX_VALUE) data += "Frequency : ${bean.frequency}\n"
+                    if (bean.bandWidth != null && bean.bandWidth != 0 && bean.bandWidth != Int.MAX_VALUE) data += "BandWidth : ${bean.bandWidth}\n"
+                    if (bean.channelWidth.isNotEmpty()) data += "Channel : ${bean.channelWidth}\n"
+                    if (bean.rssi != null && bean.rssi != 0 && bean.rssi != Int.MAX_VALUE) data += "RSSI : ${bean.rssi}\n"
+                    if (bean.CINR != null && bean.CINR != 0 && bean.CINR != Int.MAX_VALUE) data += "CINR : ${bean.CINR}\n"
+                    if (bean.MCS != null && bean.MCS != 0 && bean.MCS != Int.MAX_VALUE) data += "MCS : ${bean.MCS}\n"
+                    if (bean.standard != null && bean.standard != 0 && bean.standard != Int.MAX_VALUE) data += "Standard : ${bean.standard}\n"
+
+                    logData += data
                 }
             }
             logData += "\n----\n"
