@@ -2,5 +2,5 @@
     <string name="app_name">GetNetwork</string>
     <string name="tab_wifi">Wifi</string>
     <string name="tab_cellular">Cellular</string>
-    <string name="load_data">load data</string>
+    <string name="load_data">start</string>
 </resources>

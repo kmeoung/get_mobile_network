@@ -1,5 +1,7 @@
 package com.kmeoung.getnetwork.bean
 
+import com.google.gson.annotations.SerializedName
+
 /**
  * BSSID
  * SSID
@@ -12,13 +14,15 @@ package com.kmeoung.getnetwork.bean
  *
  */
 data class BeanWifiData(
-    var BSSID: String,
-    var SSID: String,
-    var frequency: Int,
-    var channelWidth: String,
-    var rssi: Int?,
-    var standard: Int?,
-    var bandWidth: Int?,
-    var CINR: Int?,
-    var MCS: Int?
+    @SerializedName("isConnected") var isConnected : Boolean,
+    @SerializedName("BSSID") var BSSID: String = "",
+    @SerializedName("SSID") var SSID: String = "",
+    @SerializedName("Frequency") var frequency: Int = -999,
+    @SerializedName("Channel") var channel: Int = -999,
+    @SerializedName("RSSI") var RSSI: Int = -999,
+    @SerializedName("Standard") var standard: Int = -999,
+    @SerializedName("BandWidth") var bandWidth: String = "",
+    @SerializedName("CINR") var CINR: Int = -999,
+    @SerializedName("MCS") var MCS: Int = -999,
+    @SerializedName("Scan_No") var scan_no: Int = 0,
 )

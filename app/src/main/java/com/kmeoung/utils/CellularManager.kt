@@ -7,27 +7,19 @@ import android.content.pm.PackageManager
 import android.location.LocationManager
 import android.os.Build
 import android.telephony.*
-import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import java.lang.Exception
 import android.telephony.TelephonyManager
 
-import android.telephony.gsm.GsmCellLocation
 import android.util.Log
-import com.kmeoung.getnetwork.bean.Bean5GData
-import com.kmeoung.getnetwork.bean.BeanLteData
-import com.kmeoung.getnetwork.bean.CellularData
 import android.telephony.CellInfoLte
-import android.telephony.PhoneStateListener.LISTEN_SIGNAL_STRENGTHS
-import android.telephony.CellInfo
-
-import androidx.core.content.ContextCompat.getSystemService
 
 import android.content.Context.TELEPHONY_SERVICE
 
 import android.telephony.PhoneStateListener
+import com.kmeoung.getnetwork.bean.BeanMobileNetwork
 
 
 class CellularManager(private val context: Context) {
@@ -40,20 +32,12 @@ class CellularManager(private val context: Context) {
     private var mSignalStrength: SignalStrengthListener? = null
 
     companion object {
-        val REQUIRED_PERMISSION = arrayOf<String>(
+        val REQUIRED_PERMISSION = arrayOf(
             "android.permission.ACCESS_FINE_LOCATION",
             "android.permission.READ_PHONE_STATE"
         )
 
-        /**
-         * Lte 4G
-         * Nr 5G
-         */
-        enum class NETWORK_TYPE {
-            LTE, NR
-        }
-
-        val DEFAULT_DATA = -999
+        const val DEFAULT_DATA = -999
     }
 
     /**
@@ -162,7 +146,8 @@ class CellularManager(private val context: Context) {
         var cellidHex = DecToHex(cid)
 
         //16진수 eNB
-        var eNBHex = if(cellidHex.length > 2) cellidHex.substring(0, cellidHex.length - 2) else cellidHex
+        var eNBHex =
+            if (cellidHex.length > 2) cellidHex.substring(0, cellidHex.length - 2) else cellidHex
 
         //10진수 eNB
         return HexToDec(eNBHex)
@@ -170,168 +155,166 @@ class CellularManager(private val context: Context) {
 
 
     @SuppressLint("MissingPermission")
-    fun getData(): ArrayList<Any?> {
-        val cellInfos = (context.getSystemService(TELEPHONY_SERVICE) as TelephonyManager).allCellInfo
+    fun getData(searchCount: Int): ArrayList<BeanMobileNetwork> {
 
-        val array = ArrayList<Any?>()
-        for (cellInfo in cellInfos) {
-            var dbm: Int
-            val currentNetworkType = getType()
-            when {
-                currentNetworkType == "5G" -> {
-                    // 우리나라 5G 상용화 19년 4월 3일
-                    // Android Q 공개 날짜 19년 9월 3일
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                        when (cellInfo) {
-                            is CellInfoNr -> {// CellInfoNr
-                                //- [ ] •5G (P (Primary), 수집된 모든 N (Neighbor) 구성, 측정 시간 동안 하나의 Cell ID 에 다수 데이터)
-                                //- [ ] 5G >
-                                //- [ ] (SS-)SINR,
-                                //- [ ] CQI,
-                                //- [ ] MCS
+        val array = ArrayList<BeanMobileNetwork>()
 
-                                var cqi = 0
-                                var mcs : Int? = null
+        for (count in 1..searchCount) {
+            val cellInfos =
+                (context.getSystemService(TELEPHONY_SERVICE) as TelephonyManager).allCellInfo
+            val nbIdType = if (count == 1) "P" else "N"
 
-                                dbm = cellInfo.cellSignalStrength.dbm
-                                var nci = (cellInfo.cellIdentity as CellIdentityNr).nci
-                                var pci = (cellInfo.cellIdentity as CellIdentityNr).pci
-                                var nrarfcn = (cellInfo.cellIdentity as CellIdentityNr).nrarfcn
-                                var rsrp =
-                                    (cellInfo.cellSignalStrength as CellSignalStrengthNr).ssRsrp
-                                var rsrq =
-                                    (cellInfo.cellSignalStrength as CellSignalStrengthNr).ssRsrq
-                                var sinr =
-                                    (cellInfo.cellSignalStrength as CellSignalStrengthNr).ssSinr
-                                array.add(
-                                    Bean5GData(
-                                        currentNetworkType,
-                                        getNodeBId(nci),
-                                        getNodeBId(pci.toLong()),
-                                        dbm,
-                                        nci,
-                                        nrarfcn,
-                                        pci,
-                                        rsrp,
-                                        rsrq,
-                                        sinr,
-                                        cqi,
-                                        mcs
+            for (cellInfo in cellInfos) {
+                var dbm: Int
+                val currentNetworkType = getType()
+                when {
+                    currentNetworkType == "5G" -> {
+                        // 우리나라 5G 상용화 19년 4월 3일
+                        // Android Q 공개 날짜 19년 9월 3일
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                            when (cellInfo) {
+                                is CellInfoNr -> {// CellInfoNr
+                                    //- [ ] •5G (P (Primary), 수집된 모든 N (Neighbor) 구성, 측정 시간 동안 하나의 Cell ID 에 다수 데이터)
+                                    //- [ ] 5G >
+                                    //- [ ] (SS-)SINR,
+                                    //- [ ] CQI,
+                                    //- [ ] MCS
+
+                                    val cqi = DEFAULT_DATA
+                                    val mcs: Int = DEFAULT_DATA
+
+                                    dbm = cellInfo.cellSignalStrength.dbm
+                                    val nci = (cellInfo.cellIdentity as CellIdentityNr).nci
+                                    val pci = (cellInfo.cellIdentity as CellIdentityNr).pci
+                                    val nrarfcn = (cellInfo.cellIdentity as CellIdentityNr).nrarfcn
+                                    val rsrp =
+                                        (cellInfo.cellSignalStrength as CellSignalStrengthNr).ssRsrp
+                                    val rsrq =
+                                        (cellInfo.cellSignalStrength as CellSignalStrengthNr).ssRsrq
+                                    val sinr =
+                                        (cellInfo.cellSignalStrength as CellSignalStrengthNr).ssSinr
+
+
+                                    array.add(
+                                        BeanMobileNetwork(
+                                            currentNetworkType = currentNetworkType,
+                                            CELL_ID = getNodeBId(nci),
+                                            ARFCN = if (nrarfcn == 0 || nrarfcn == Int.MAX_VALUE) DEFAULT_DATA else nrarfcn,
+                                            PCI = if (pci == 0 || pci == Int.MAX_VALUE) DEFAULT_DATA else pci,
+                                            RSRP = if (rsrp == 0 || rsrp == Int.MAX_VALUE) DEFAULT_DATA else rsrp,
+                                            RSRQ = if (rsrq == 0 || rsrq == Int.MAX_VALUE) DEFAULT_DATA else rsrq,
+                                            SINR = if (sinr == 0 || sinr == Int.MAX_VALUE) DEFAULT_DATA else sinr,
+                                            CQI = if (cqi == 0 || cqi == Int.MAX_VALUE) DEFAULT_DATA else cqi,
+                                            MCS = if (mcs == 0 || mcs == Int.MAX_VALUE) DEFAULT_DATA else mcs,
+                                            scan_no = count, NB_ID_TYPE = nbIdType
+                                        )
                                     )
-                                )
-                            }
-                            is CellInfoLte -> { // CellInfoLte
-                                //- [ ] MCS
-                                var mcs : Int? = null
+                                }
+                                is CellInfoLte -> { // CellInfoLte
+                                    //- [ ] MCS
+                                    val mcs: Int = DEFAULT_DATA
 
-                                dbm = cellInfo.cellSignalStrength.dbm
-                                var ci = cellInfo.cellIdentity.ci.toLong()
-                                var earfcn = cellInfo.cellIdentity.earfcn
-                                var pci = cellInfo.cellIdentity.pci
-                                var rsrp = cellInfo.cellSignalStrength.rsrp
-                                var rsrq = cellInfo.cellSignalStrength.rsrq
-                                var cqi = cellInfo.cellSignalStrength.cqi
-                                var sinr = cellInfo.cellSignalStrength.rssnr
+                                    dbm = cellInfo.cellSignalStrength.dbm
+                                    val ci = cellInfo.cellIdentity.ci.toLong()
+                                    val earfcn = cellInfo.cellIdentity.earfcn
+                                    val pci = cellInfo.cellIdentity.pci
+                                    val rsrp = cellInfo.cellSignalStrength.rsrp
+                                    val rsrq = cellInfo.cellSignalStrength.rsrq
+                                    val cqi = cellInfo.cellSignalStrength.cqi
+                                    val sinr = cellInfo.cellSignalStrength.rssnr
 
-                                array.add(
-                                    BeanLteData(
-                                        currentNetworkType,
-                                        getNodeBId(ci),
-                                        getNodeBId(pci.toLong()),
-                                        dbm,
-                                        ci,
-                                        earfcn,
-                                        pci,
-                                        rsrp,
-                                        rsrq,
-                                        sinr,
-                                        cqi,
-                                        mcs
+                                    array.add(
+                                        BeanMobileNetwork(
+                                            currentNetworkType = currentNetworkType,
+                                            CELL_ID = getNodeBId(ci),
+                                            ARFCN = if (earfcn == 0 || earfcn == Int.MAX_VALUE) DEFAULT_DATA else earfcn,
+                                            PCI = if (pci == 0 || pci == Int.MAX_VALUE) DEFAULT_DATA else pci,
+                                            RSRP = if (rsrp == 0 || rsrp == Int.MAX_VALUE) DEFAULT_DATA else rsrp,
+                                            RSRQ = if (rsrq == 0 || rsrq == Int.MAX_VALUE) DEFAULT_DATA else rsrq,
+                                            SINR = if (sinr == 0 || sinr == Int.MAX_VALUE) DEFAULT_DATA else sinr,
+                                            CQI = if (cqi == 0 || cqi == Int.MAX_VALUE) DEFAULT_DATA else cqi,
+                                            MCS = if (mcs == 0 || mcs == Int.MAX_VALUE) DEFAULT_DATA else mcs,
+                                            scan_no = count, NB_ID_TYPE = nbIdType
+                                        )
                                     )
-                                )
+                                }
                             }
                         }
                     }
-                }
-                getType() == "LTE" -> {
-                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
-                        try {
-                            if (cellInfo is CellInfoLte) {
-                                // cast to CellInfoLte and call all the CellInfoLte methods you need
-                                // gets RSRP cell signal strength:
-                                var dbm = cellInfo.cellSignalStrength.dbm
+                    getType() == "LTE" -> {
+                        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+                            try {
+                                if (cellInfo is CellInfoLte) {
+                                    // cast to CellInfoLte and call all the CellInfoLte methods you need
+                                    // gets RSRP cell signal strength:
+                                    val dbm = cellInfo.cellSignalStrength.dbm
 
-                                // Gets the LTE cell indentity: (returns 28-bit Cell Identity, Integer.MAX_VALUE if unknown)
-                                var ci = cellInfo.cellIdentity.ci
-                                // Gets the LTE PCI: (returns Physical Cell Id 0..503, Integer.MAX_VALUE if unknown)
-                                var pci = cellInfo.cellIdentity.pci
-                                var earfcn = DEFAULT_DATA
-                                if (mSignalStrength != null) {
-                                    var mcs : Int? = null
-                                    array.add(
-                                        BeanLteData(
-                                            currentNetworkType,
-                                            getNodeBId(ci.toLong()),
-                                            getNodeBId(pci.toLong()),
-                                            dbm,
-                                            ci.toLong(),
-                                            earfcn,
-                                            pci,
-                                            (mSignalStrength!!.rsrp ?: "$DEFAULT_DATA").toInt(),
-                                            (mSignalStrength!!.rsrq ?: "$DEFAULT_DATA").toInt(),
-                                            (mSignalStrength!!.rssnr ?: "$DEFAULT_DATA").toInt(),
-                                            (mSignalStrength!!.cqi ?: "$DEFAULT_DATA").toInt(),
-                                            mcs
+                                    // Gets the LTE cell indentity: (returns 28-bit Cell Identity, Integer.MAX_VALUE if unknown)
+                                    val ci = cellInfo.cellIdentity.ci
+                                    // Gets the LTE PCI: (returns Physical Cell Id 0..503, Integer.MAX_VALUE if unknown)
+                                    val pci = cellInfo.cellIdentity.pci
+                                    val earfcn = DEFAULT_DATA
+                                    if (mSignalStrength != null) {
+                                        val mcs: Int = DEFAULT_DATA
+                                        val rsrp =
+                                            (mSignalStrength!!.rsrp ?: "$DEFAULT_DATA").toInt()
+                                        val rsrq =
+                                            (mSignalStrength!!.rsrq ?: "$DEFAULT_DATA").toInt()
+                                        val sinr =
+                                            (mSignalStrength!!.rssnr ?: "$DEFAULT_DATA").toInt()
+                                        val cqi = (mSignalStrength!!.cqi ?: "$DEFAULT_DATA").toInt()
+
+                                        array.add(
+                                            BeanMobileNetwork(
+                                                currentNetworkType = currentNetworkType,
+                                                CELL_ID = getNodeBId(ci.toLong()),
+                                                ARFCN = if (earfcn == 0 || earfcn == Int.MAX_VALUE) DEFAULT_DATA else earfcn,
+                                                PCI = if (pci == 0 || pci == Int.MAX_VALUE) DEFAULT_DATA else pci,
+                                                RSRP = if (rsrp == 0 || rsrp == Int.MAX_VALUE) DEFAULT_DATA else rsrp,
+                                                RSRQ = if (rsrq == 0 || rsrq == Int.MAX_VALUE) DEFAULT_DATA else rsrq,
+                                                SINR = if (sinr == 0 || sinr == Int.MAX_VALUE) DEFAULT_DATA else sinr,
+                                                CQI = if (cqi == 0 || cqi == Int.MAX_VALUE) DEFAULT_DATA else cqi,
+                                                MCS = if (mcs == 0 || mcs == Int.MAX_VALUE) DEFAULT_DATA else mcs,
+                                                scan_no = count, NB_ID_TYPE = nbIdType
+                                            )
                                         )
-                                    )
-                                } else {
-                                    array.add(null)
+                                    }
                                 }
-                            } else {
-                                array.add(null)
+                            } catch (e: Exception) {
+                                Log.d(
+                                    "SignalStrength",
+                                    "++++++++++++++++++++++ null array spot 2: $e"
+                                )
                             }
-                        } catch (e: Exception) {
-                            Log.d("SignalStrength", "++++++++++++++++++++++ null array spot 2: $e")
-                            array.add(null)
-                        }
-                    } else if (cellInfo is CellInfoLte) { // CellInfoLte
-                        var mcs : Int? = null
+                        } else if (cellInfo is CellInfoLte) { // CellInfoLte
+                            val mcs: Int = DEFAULT_DATA
 
-                        dbm = cellInfo.cellSignalStrength.dbm
-                        var ci = cellInfo.cellIdentity.ci.toLong()
-                        var earfcn = DEFAULT_DATA
-                        var rsrp = DEFAULT_DATA
-                        var rsrq = DEFAULT_DATA
-                        var cqi = DEFAULT_DATA
-                        var sinr = DEFAULT_DATA
+                            dbm = cellInfo.cellSignalStrength.dbm
+                            val ci = cellInfo.cellIdentity.ci.toLong()
+                            // lte 상용화 시점 2004년
+                            // 안드로이드 N 버전 상용화 시점 2016년 8월 22
+                            val earfcn = cellInfo.cellIdentity.earfcn
+                            val rsrp = cellInfo.cellSignalStrength.rsrp
+                            val rsrq = cellInfo.cellSignalStrength.rsrq
+                            val cqi = cellInfo.cellSignalStrength.cqi
+                            val sinr = cellInfo.cellSignalStrength.rssnr
+                            val pci = cellInfo.cellIdentity.pci
 
-                        // lte 상용화 시점 2004년
-                        // 안드로이드 N 버전 상용화 시점 2016년 8월 22
-
-                        earfcn = cellInfo.cellIdentity.earfcn
-                        rsrp = cellInfo.cellSignalStrength.rsrp
-                        rsrq = cellInfo.cellSignalStrength.rsrq
-                        cqi = cellInfo.cellSignalStrength.cqi
-                        sinr = cellInfo.cellSignalStrength.rssnr
-                        var pci = cellInfo.cellIdentity.pci
-
-
-                        array.add(
-                            BeanLteData(
-                                currentNetworkType,
-                                getNodeBId(ci),
-                                getNodeBId(pci.toLong()),
-                                dbm,
-                                ci,
-                                earfcn,
-                                pci,
-                                rsrp,
-                                rsrq,
-                                sinr,
-                                cqi,
-                                mcs
+                            array.add(
+                                BeanMobileNetwork(
+                                    currentNetworkType = currentNetworkType,
+                                    CELL_ID = getNodeBId(ci),
+                                    ARFCN = if (earfcn == 0 || earfcn == Int.MAX_VALUE) DEFAULT_DATA else earfcn,
+                                    PCI = if (pci == 0 || pci == Int.MAX_VALUE) DEFAULT_DATA else pci,
+                                    RSRP = if (rsrp == 0 || rsrp == Int.MAX_VALUE) DEFAULT_DATA else rsrp,
+                                    RSRQ = if (rsrq == 0 || rsrq == Int.MAX_VALUE) DEFAULT_DATA else rsrq,
+                                    SINR = if (sinr == 0 || sinr == Int.MAX_VALUE) DEFAULT_DATA else sinr,
+                                    CQI = if (cqi == 0 || cqi == Int.MAX_VALUE) DEFAULT_DATA else cqi,
+                                    MCS = if (mcs == 0 || mcs == Int.MAX_VALUE) DEFAULT_DATA else mcs,
+                                    scan_no = count, NB_ID_TYPE = nbIdType
+                                )
                             )
-                        )
+                        }
                     }
                 }
             }
@@ -376,84 +359,84 @@ class CellularManager(private val context: Context) {
         }
     }
 
-
-    /**
-     * 보통 사용하는 상용망 속도 기준
-     * checkPermission
-     * @return List<network_type,dbm>
-     */
-
-    @SuppressLint("MissingPermission")
-    @RequiresPermission(android.Manifest.permission.ACCESS_FINE_LOCATION)
-    fun getDbms(): ArrayList<CellularData> {
-        val cellInfos = (context.getSystemService(TELEPHONY_SERVICE) as TelephonyManager).allCellInfo
-        Log.d("TEST_11", getType())
-
-        var array = ArrayList<CellularData>()
-        for (cellInfo in cellInfos) {
-            // TODO : Cell 즉 기지국 정보마다 Network Type이 정확한 데이터 인지 확인 필요
-            var type = getType()
-            var dbm: Int? = null
-            var cid: Long? = null
-            var pcid: Int? = null
-            when {
-                Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> {
-                    when (cellInfo) {
-                        is CellInfoNr -> {// CellInfoNr
-                            dbm = cellInfo.cellSignalStrength.dbm
-                            if (Build.VERSION.SDK_INT >= 30) {
-                                cid = (cellInfo.cellIdentity as CellIdentityNr).nci
-                                pcid = (cellInfo.cellIdentity as CellIdentityNr).pci
-                            } else {
-                                cid =
-                                    ((context.getSystemService(TELEPHONY_SERVICE) as TelephonyManager).cellLocation as GsmCellLocation).cid.toLong()
-                            }
-                        }
-                        is CellInfoLte -> { // CellInfoLte
-                            dbm = cellInfo.cellSignalStrength.dbm
-                            if (Build.VERSION.SDK_INT >= 30) {
-                                cid = cellInfo.cellIdentity.ci.toLong()
-                                pcid = cellInfo.cellIdentity.pci
-                            } else {
-                                cid =
-                                    ((context.getSystemService(TELEPHONY_SERVICE) as TelephonyManager).cellLocation as GsmCellLocation).cid.toLong()
-                            }
-                        }
-                        is CellInfoGsm -> {
-                            dbm = cellInfo.cellSignalStrength.dbm
-                            if (Build.VERSION.SDK_INT >= 30) {
-                                cid = cellInfo.cellIdentity.cid.toLong()
-                                pcid = cellInfo.cellIdentity.psc
-                            } else {
-                                cid =
-                                    ((context.getSystemService(TELEPHONY_SERVICE) as TelephonyManager).cellLocation as GsmCellLocation).cid.toLong()
-                            }
-                        }
-                    }
-                }
-                cellInfo is CellInfoLte -> { // CellInfoLte
-                    dbm = cellInfo.cellSignalStrength.dbm
-                    if (Build.VERSION.SDK_INT >= 30) {
-                        cid = cellInfo.cellIdentity.ci.toLong()
-                        pcid = cellInfo.cellIdentity.pci
-                    } else {
-                        cid = ((context.getSystemService(TELEPHONY_SERVICE) as TelephonyManager).cellLocation as GsmCellLocation).cid.toLong()
-                    }
-                }
-                cellInfo is CellInfoGsm -> {
-                    dbm = cellInfo.cellSignalStrength.dbm
-                    if (Build.VERSION.SDK_INT >= 30) {
-                        cid = cellInfo.cellIdentity.cid.toLong()
-                        pcid = cellInfo.cellIdentity.psc
-                    } else {
-                        cid = ((context.getSystemService(TELEPHONY_SERVICE) as TelephonyManager).cellLocation as GsmCellLocation).cid.toLong()
-                    }
-                }
-            }
-            array.add(CellularData(cid, type, dbm, pcid))// CellInfo
-        }
-        return array
-    }
+//
+//    /**
+//     * 보통 사용하는 상용망 속도 기준
+//     * checkPermission
+//     * @return List<network_type,dbm>
+//     */
+//
+//    @SuppressLint("MissingPermission")
+//    @RequiresPermission(android.Manifest.permission.ACCESS_FINE_LOCATION)
+//    fun getDbms(): ArrayList<CellularData> {
+//        val cellInfos = (context.getSystemService(TELEPHONY_SERVICE) as TelephonyManager).allCellInfo
+//        Log.d("TEST_11", getType())
+//
+//        var array = ArrayList<CellularData>()
+//        for (cellInfo in cellInfos) {
+//            // TODO : Cell 즉 기지국 정보마다 Network Type이 정확한 데이터 인지 확인 필요
+//            var type = getType()
+//            var dbm: Int? = null
+//            var cid: Long? = null
+//            var pcid: Int? = null
+//            when {
+//                Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> {
+//                    when (cellInfo) {
+//                        is CellInfoNr -> {// CellInfoNr
+//                            dbm = cellInfo.cellSignalStrength.dbm
+//                            if (Build.VERSION.SDK_INT >= 30) {
+//                                cid = (cellInfo.cellIdentity as CellIdentityNr).nci
+//                                pcid = (cellInfo.cellIdentity as CellIdentityNr).pci
+//                            } else {
+//                                cid =
+//                                    ((context.getSystemService(TELEPHONY_SERVICE) as TelephonyManager).cellLocation as GsmCellLocation).cid.toLong()
+//                            }
+//                        }
+//                        is CellInfoLte -> { // CellInfoLte
+//                            dbm = cellInfo.cellSignalStrength.dbm
+//                            if (Build.VERSION.SDK_INT >= 30) {
+//                                cid = cellInfo.cellIdentity.ci.toLong()
+//                                pcid = cellInfo.cellIdentity.pci
+//                            } else {
+//                                cid =
+//                                    ((context.getSystemService(TELEPHONY_SERVICE) as TelephonyManager).cellLocation as GsmCellLocation).cid.toLong()
+//                            }
+//                        }
+//                        is CellInfoGsm -> {
+//                            dbm = cellInfo.cellSignalStrength.dbm
+//                            if (Build.VERSION.SDK_INT >= 30) {
+//                                cid = cellInfo.cellIdentity.cid.toLong()
+//                                pcid = cellInfo.cellIdentity.psc
+//                            } else {
+//                                cid =
+//                                    ((context.getSystemService(TELEPHONY_SERVICE) as TelephonyManager).cellLocation as GsmCellLocation).cid.toLong()
+//                            }
+//                        }
+//                    }
+//                }
+//                cellInfo is CellInfoLte -> { // CellInfoLte
+//                    dbm = cellInfo.cellSignalStrength.dbm
+//                    if (Build.VERSION.SDK_INT >= 30) {
+//                        cid = cellInfo.cellIdentity.ci.toLong()
+//                        pcid = cellInfo.cellIdentity.pci
+//                    } else {
+//                        cid = ((context.getSystemService(TELEPHONY_SERVICE) as TelephonyManager).cellLocation as GsmCellLocation).cid.toLong()
+//                    }
+//                }
+//                cellInfo is CellInfoGsm -> {
+//                    dbm = cellInfo.cellSignalStrength.dbm
+//                    if (Build.VERSION.SDK_INT >= 30) {
+//                        cid = cellInfo.cellIdentity.cid.toLong()
+//                        pcid = cellInfo.cellIdentity.psc
+//                    } else {
+//                        cid = ((context.getSystemService(TELEPHONY_SERVICE) as TelephonyManager).cellLocation as GsmCellLocation).cid.toLong()
+//                    }
+//                }
+//            }
+//            array.add(CellularData(cid, type, dbm, pcid))// CellInfo
+//        }
+//        return array
+//    }
 
     /**
      * 5G 체크

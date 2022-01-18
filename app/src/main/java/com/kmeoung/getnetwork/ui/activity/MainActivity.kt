@@ -30,13 +30,8 @@ import com.kmeoung.utils.WriteTextManager
 import java.text.SimpleDateFormat
 import java.util.*
 import android.telephony.TelephonyManager
-
 import android.telephony.SubscriptionInfo
-
 import android.telephony.SubscriptionManager
-
-import android.R.attr.name
-
 
 class MainActivity : BaseActivity() {
 
@@ -81,14 +76,18 @@ class MainActivity : BaseActivity() {
 
         WriteTextManager.requestPermissions(this@MainActivity, REQUEST_PERMISSION_GRANT)
 
+        binding.tvAddress.text =
+            "Sim Operator : ${getSimOperator()}\nAndroid API : ${Build.VERSION.SDK_INT}"
+        binding.tvDate.text = "Start Scan : $startDate\nEnd Scan : $endDate"
         // 모바일 네트워크 먼저 로딩
         binding.btn.setOnClickListener { _ ->
+            binding.btn.isEnabled = false
             if (_dialog != null) _dialog!!.show()
             cal = Calendar.getInstance()
             startDate = sdf.format(cal!!.time)
-//            getWifiInfo()
             getCellularInfo()
         }
+
     }
 
     /**
@@ -108,7 +107,7 @@ class MainActivity : BaseActivity() {
             //if there are two sims in dual sim mobile
             val localList: List<*> = localSubscriptionManager.activeSubscriptionInfoList
             val simInfo = localList[0] as SubscriptionInfo
-            val simInfo1 = localList[1] as SubscriptionInfo
+//            val simInfo1 = localList[1] as SubscriptionInfo
             simInfo.displayName.toString()
             //                val sim2 = simInfo1.displayName.toString()
         } else {
@@ -131,8 +130,8 @@ class MainActivity : BaseActivity() {
                     mAdapter.clear()
                     try {
                         getWifiInfo()
-                        for (data in cellularInfo.getData()) {
-                            if (data != null) mAdapter.add(data)
+                        for (data in cellularInfo.getData(3)) {
+                            mAdapter.add(data)
                         }
                     } catch (e: Exception) {
                         e.printStackTrace()
@@ -140,6 +139,7 @@ class MainActivity : BaseActivity() {
                             .show()
                     }
                 } else {
+                    binding.btn.isEnabled = true
                     Toast.makeText(
                         this@MainActivity,
                         ACTIVE_MOBILE_NETWORK,
@@ -148,10 +148,12 @@ class MainActivity : BaseActivity() {
                         .show()
                 }
             } else {
+                binding.btn.isEnabled = true
                 Toast.makeText(this@MainActivity, ACTIVE_LOCATION_INFORMATION, Toast.LENGTH_SHORT)
                     .show()
             }
         } else {
+            binding.btn.isEnabled = true
             cellularInfo.requestPermissions(
                 this@MainActivity, REQUEST_PERMISSION_GRANT
             )
@@ -180,24 +182,17 @@ class MainActivity : BaseActivity() {
         Log.d(TAG, caps.toString())
 
         _wifiManager = WifiManager(this@MainActivity)
-
         if (mWifiManager.checkPermissions()) {
             if (mWifiManager.checkGps()) {
                 if (_dialog != null) _dialog!!.show()
                 try {
-                    mWifiManager.scanStart(object : IOWifiListener {
+                    mWifiManager.scanStart(3, object : IOWifiListener {
                         override fun scanSuccess(wifiData: BeanWifiData) {
-                            if (_dialog != null && _dialog!!.isShowing) _dialog!!.dismiss()
                             Log.d(TAG, "Wifi Scan Success")
                             mAdapter.add(wifiData)
                         }
 
-                        override fun scanEnded(results: List<ScanResult>) {
-                            saveLog()
-                        }
-
                         override fun scanFailure(results: List<ScanResult>?) {
-                            if (_dialog != null && _dialog!!.isShowing) _dialog!!.dismiss()
                             Toast.makeText(
                                 this@MainActivity,
                                 PLEASE_WAIT_2MINUTE,
@@ -206,17 +201,27 @@ class MainActivity : BaseActivity() {
                                 .show()
                             Log.d(TAG, "Wifi Scan Failed")
                         }
+
+                        override fun scanEnded() {
+                            binding.btn.isEnabled = true
+                            if (_dialog != null && _dialog!!.isShowing) _dialog!!.dismiss()
+                            saveLog()
+                        }
                     })
                 } catch (e: Exception) {
+                    binding.btn.isEnabled = true
                     if (_dialog != null && _dialog!!.isShowing) _dialog!!.dismiss()
                     e.printStackTrace()
+                    saveLog()
                 }
             } else {
+                binding.btn.isEnabled = true
                 if (_dialog != null && _dialog!!.isShowing) _dialog!!.dismiss()
                 Toast.makeText(this@MainActivity, ACTIVE_LOCATION_INFORMATION, Toast.LENGTH_SHORT)
                     .show()
             }
         } else {
+            binding.btn.isEnabled = true
             if (_dialog != null && _dialog!!.isShowing) _dialog!!.dismiss()
             mWifiManager.requestPermissions(
                 this@MainActivity,
@@ -270,60 +275,35 @@ class MainActivity : BaseActivity() {
             val tvTitle = h.getItemView<TextView>(R.id.tv_title)
             when (getItemViewType(i)) {
                 TYPE_CELLULAR -> {
-                    when (mAdapter.get(i)) {
-                        is BeanLteData -> {
-                            llBg.setBackgroundColor(getColor(R.color.teal_200))
-                            val bean = mAdapter.get(i) as BeanLteData
-                            var data = ""
-                            data += "${bean.currentNetworkType}\n"
-                            if (bean.eNBID_N != 0 && bean.eNBID_N != Int.MAX_VALUE) data += "eNB_ID(N) : ${bean.eNBID_N}\n"
-                            if (bean.eNBID_P != 0 && bean.eNBID_P != Int.MAX_VALUE) data += "eNB_ID(P) : ${bean.eNBID_P}\n"
-                            if (bean.earfcn != 0 && bean.earfcn != Int.MAX_VALUE) data += "EARFCN : ${bean.earfcn}\n"
-                            if (bean.ci != 0L && bean.ci != Long.MAX_VALUE) data += "CI : ${bean.ci}\n"
-                            if (bean.pci != 0 && bean.pci != Int.MAX_VALUE) data += "PCI : ${bean.pci}\n"
-                            if (bean.rsrp != 0 && bean.rsrp != Int.MAX_VALUE) data += "RSRP : ${bean.rsrp}\n"
-                            if (bean.rsrq != 0 && bean.rsrq != Int.MAX_VALUE) data += "RSRQ : ${bean.rsrq}\n"
-                            if (bean.sinr != 0 && bean.sinr != Int.MAX_VALUE) data += "SINR : ${bean.sinr}\n"
-                            if (bean.cqi != 0 && bean.cqi != Int.MAX_VALUE) data += "CQI : ${bean.cqi}\n"
-                            if (bean.mcs != null && bean.mcs != 0 && bean.mcs != Int.MAX_VALUE) data += "MCS : ${bean.mcs}\n"
-                            tvTitle.text = data
-                        }
-                        is Bean5GData -> {
-                            llBg.setBackgroundColor(getColor(R.color.teal_700))
-                            val bean = mAdapter.get(i) as Bean5GData
-                            var data = ""
-                            data += "${bean.currentNetworkType}\n"
-                            if (bean.gNBID_N != 0 && bean.gNBID_N != Int.MAX_VALUE) data += "gNB_ID(N) : ${bean.gNBID_N}\n"
-                            if (bean.gNBID_P != 0 && bean.gNBID_P != Int.MAX_VALUE) data += "gNB_ID(P) : ${bean.gNBID_P}\n"
-                            if (bean.nr_earfcn != 0 && bean.nr_earfcn != Int.MAX_VALUE) data += "NR-ARFCN : ${bean.nr_earfcn}\n"
-                            if (bean.nci != 0L && bean.nci != Long.MAX_VALUE) data += "NCI : ${bean.nci}\n"
-                            if (bean.pci != 0 && bean.pci != Int.MAX_VALUE) data += "PCI : ${bean.pci}\n"
-                            if (bean.ss_rsrp != 0 && bean.ss_rsrp != Int.MAX_VALUE) data += "SS-RSRP : ${bean.ss_rsrp}\n"
-                            if (bean.ss_rsrq != 0 && bean.ss_rsrq != Int.MAX_VALUE) data += "SS-RSRQ : ${bean.ss_rsrq}\n"
-                            if (bean.ss_sinr != 0 && bean.ss_sinr != Int.MAX_VALUE) data += "SS-SINR : ${bean.ss_sinr}\n"
-                            if (bean.cqi != 0 && bean.cqi != Int.MAX_VALUE) data += "CQI : ${bean.cqi}\n"
-                            if (bean.mcs != null && bean.mcs != 0 && bean.mcs != Int.MAX_VALUE) data += "MCS : ${bean.mcs}\n"
-                            tvTitle.text = data
-                        }
-                    }
-
-
+                    val data = mAdapter.get(i) as BeanMobileNetwork
+                    llBg.setBackgroundColor(getColor(if (data.currentNetworkType == "LTE") R.color.teal_200 else R.color.teal_700))
+                    tvTitle.text = """${data.currentNetworkType}
+                        CELL_ID : ${data.CELL_ID}
+                        ARFCN : ${data.ARFCN}
+                        PCI : ${data.PCI}
+                        RSRP : ${data.RSRP}
+                        RSRQ : ${data.RSRQ}
+                        SINR : ${data.SINR}
+                        CQI : ${data.CQI}
+                        MCS : ${data.MCS}
+                        Scan_No : ${data.scan_no}
+                    """.trimIndent()
                 }
                 TYPE_WIFI -> {
-                    val bean = mAdapter.get(i) as BeanWifiData
-                    llBg.setBackgroundColor(getColor(R.color.yellow))
-                    var data = ""
-                    data += "WIFI\n"
-                    if (bean.BSSID.isNotEmpty()) data += "BSSID : ${bean.BSSID}\n"
-                    if (bean.SSID.isNotEmpty()) data += "SSID : ${bean.SSID}\n"
-                    if (bean.frequency != 0 && bean.frequency != Int.MAX_VALUE) data += "Frequency : ${bean.frequency}\n"
-                    if (bean.bandWidth != null && bean.bandWidth != 0 && bean.bandWidth != Int.MAX_VALUE) data += "BandWidth : ${bean.bandWidth}\n"
-                    if (bean.channelWidth.isNotEmpty()) data += "Channel : ${bean.channelWidth}\n"
-                    if (bean.rssi != null && bean.rssi != 0 && bean.rssi != Int.MAX_VALUE) data += "RSSI : ${bean.rssi}\n"
-                    if (bean.CINR != null && bean.CINR != 0 && bean.CINR != Int.MAX_VALUE) data += "CINR : ${bean.CINR}\n"
-                    if (bean.MCS != null && bean.MCS != 0 && bean.MCS != Int.MAX_VALUE) data += "MCS : ${bean.MCS}\n"
-                    if (bean.standard != null && bean.standard != 0 && bean.standard != Int.MAX_VALUE) data += "Standard : ${bean.standard}\n"
-                    tvTitle.text = data
+                    val data = mAdapter.get(i) as BeanWifiData
+                    llBg.setBackgroundColor(getColor(if (data.isConnected) R.color.yellow_2 else R.color.yellow))
+                    tvTitle.text = """${if (data.isConnected) "WIFI_Conn" else "WIFI_Scan"}
+                        |BSSID : ${data.BSSID}
+                        |SSID : ${data.SSID}
+                        |Frequency : ${data.frequency}
+                        |BandWidth : ${data.bandWidth}
+                        |Channel : ${data.channel}
+                        |RSSI : ${data.RSSI}
+                        |CINR : ${data.CINR}
+                        |MCS : ${data.MCS}
+                        |Standard : ${data.standard}
+                        |Scan_No : ${data.scan_no}
+                    """.trimMargin()
                 }
             }
 
@@ -335,111 +315,49 @@ class MainActivity : BaseActivity() {
         }
     }
 
-    @SuppressLint("MissingPermission")
     fun saveLog() {
         cal = Calendar.getInstance()
         endDate = sdf.format(cal!!.time)
+        binding.tvDate.text = "Start Scan : $startDate\nEnd Scan : $endDate"
         // TODO : 데이터 로그 저장
-
-        val conInfo = mWifiManager.getConnectionInfo()
-
-
         var logData = ""
-        logData += "Mac Address : ${conInfo.macAddress} \n"
         logData += "Sim Operator : ${getSimOperator()}\n"
-        logData += "Start Time : $startDate \n"
-        logData += "End Time : $endDate \n"
+        logData += "Scan Start Time : $startDate \n"
+        logData += "Scan End Time : $endDate \n"
+        logData += "Android API : ${Build.VERSION.SDK_INT}\n"
         for (data in mAdapter.getList()) {
-
-
             when (data) {
-                is BeanLteData -> {
-                    val bean = data as BeanLteData
-//                    logData += """${bean.currentNetworkType}
-//                                |eNB_ID(N) : ${bean.eNBID_N}
-//                                |eNB_ID(P) : ${bean.eNBID_P}
-//                                |EARFCN : ${bean.earfcn}
-//                                |CI : ${bean.ci}
-//                                |PCI : ${bean.pci}
-//                                |RSRP : ${bean.rsrp}
-//                                |RSRQ : ${bean.rsrq}
-//                                |SINR : ${bean.sinr}
-//                                |CQI : ${bean.cqi}
-//                                |MCS : ${bean.mcs}
-//                            """.trimMargin()
-
-                    var data = ""
-                    data += "${bean.currentNetworkType}\n"
-                    if (bean.eNBID_N != 0 && bean.eNBID_N != Int.MAX_VALUE) data += "eNB_ID(N) : ${bean.eNBID_N}\n"
-                    if (bean.eNBID_P != 0 && bean.eNBID_P != Int.MAX_VALUE) data += "eNB_ID(P) : ${bean.eNBID_P}\n"
-                    if (bean.earfcn != 0 && bean.earfcn != Int.MAX_VALUE) data += "EARFCN : ${bean.earfcn}\n"
-                    if (bean.ci != 0L && bean.ci != Long.MAX_VALUE) data += "CI : ${bean.ci}\n"
-                    if (bean.pci != 0 && bean.pci != Int.MAX_VALUE) data += "PCI : ${bean.pci}\n"
-                    if (bean.rsrp != 0 && bean.rsrp != Int.MAX_VALUE) data += "RSRP : ${bean.rsrp}\n"
-                    if (bean.rsrq != 0 && bean.rsrq != Int.MAX_VALUE) data += "RSRQ : ${bean.rsrq}\n"
-                    if (bean.sinr != 0 && bean.sinr != Int.MAX_VALUE) data += "SINR : ${bean.sinr}\n"
-                    if (bean.cqi != 0 && bean.cqi != Int.MAX_VALUE) data += "CQI : ${bean.cqi}\n"
-                    if (bean.mcs != null && bean.mcs != 0 && bean.mcs != Int.MAX_VALUE) data += "MCS : ${bean.mcs}\n"
-                    logData += data
-                }
-                is Bean5GData -> {
-                    val bean = data as Bean5GData
-//                    logData += """${bean.currentNetworkType}
-//                                |gNB_ID(N) : ${bean.gNBID_N}
-//                                |gNB_ID(P) : ${bean.gNBID_P}
-//                                |NR-ARFCN : ${bean.nr_earfcn}
-//                                |NCI : ${bean.nci}
-//                                |PCI : ${bean.pci}
-//                                |SS-RSRP : ${bean.ss_rsrp}
-//                                |SS-RSRQ : ${bean.ss_rsrq}
-//                                |SS-SINR : ${bean.ss_sinr}
-//                                |CQI : ${bean.cqi}
-//                                |MCS : ${bean.mcs}
-//                            """.trimMargin()
-
-                    var data = ""
-                    data += "${bean.currentNetworkType}\n"
-                    if (bean.gNBID_N != 0 && bean.gNBID_N != Int.MAX_VALUE) data += "gNB_ID(N) : ${bean.gNBID_N}\n"
-                    if (bean.gNBID_P != 0 && bean.gNBID_P != Int.MAX_VALUE) data += "gNB_ID(P) : ${bean.gNBID_P}\n"
-                    if (bean.nr_earfcn != 0 && bean.nr_earfcn != Int.MAX_VALUE) data += "NR-ARFCN : ${bean.nr_earfcn}\n"
-                    if (bean.nci != 0L && bean.nci != Long.MAX_VALUE) data += "NCI : ${bean.nci}\n"
-                    if (bean.pci != 0 && bean.pci != Int.MAX_VALUE) data += "PCI : ${bean.pci}\n"
-                    if (bean.ss_rsrp != 0 && bean.ss_rsrp != Int.MAX_VALUE) data += "SS-RSRP : ${bean.ss_rsrp}\n"
-                    if (bean.ss_rsrq != 0 && bean.ss_rsrq != Int.MAX_VALUE) data += "SS-RSRQ : ${bean.ss_rsrq}\n"
-                    if (bean.ss_sinr != 0 && bean.ss_sinr != Int.MAX_VALUE) data += "SS-SINR : ${bean.ss_sinr}\n"
-                    if (bean.cqi != 0 && bean.cqi != Int.MAX_VALUE) data += "CQI : ${bean.cqi}\n"
-                    if (bean.mcs != null && bean.mcs != 0 && bean.mcs != Int.MAX_VALUE) data += "MCS : ${bean.mcs}\n"
-                    logData += data
+                is BeanMobileNetwork -> {
+                    val log = """${data.currentNetworkType}
+                        CELL_ID : ${data.CELL_ID}
+                        ARFCN : ${data.ARFCN}
+                        PCI : ${data.PCI}
+                        RSRP : ${data.RSRP}
+                        RSRQ : ${data.RSRQ}
+                        SINR : ${data.SINR}
+                        CQI : ${data.CQI}
+                        MCS : ${data.MCS}
+                        Scan_No : ${data.scan_no}
+                    """.trimIndent()
+                    logData += log
                 }
                 is BeanWifiData -> {
-                    val bean = data as BeanWifiData
-//                    logData += """WIFI
-//                        |BSSID : ${bean.BSSID}
-//                        |SSID : ${bean.SSID}
-//                        |Frequency : ${bean.frequency}
-//                        |BandWidth : ${bean.bandWidth}
-//                        |Channel : ${bean.channelWidth}
-//                        |RSSI : ${bean.rssi}
-//                        |CINR : ${bean.CINR}
-//                        |MCS : ${bean.MCS}
-//                        |Standard : ${bean.standard}
-//                    """.trimMargin()
-
-                    var data = ""
-                    data += "WIFI\n"
-                    if (bean.BSSID.isNotEmpty()) data += "BSSID : ${bean.BSSID}\n"
-                    if (bean.SSID.isNotEmpty()) data += "SSID : ${bean.SSID}\n"
-                    if (bean.frequency != 0 && bean.frequency != Int.MAX_VALUE) data += "Frequency : ${bean.frequency}\n"
-                    if (bean.bandWidth != null && bean.bandWidth != 0 && bean.bandWidth != Int.MAX_VALUE) data += "BandWidth : ${bean.bandWidth}\n"
-                    if (bean.channelWidth.isNotEmpty()) data += "Channel : ${bean.channelWidth}\n"
-                    if (bean.rssi != null && bean.rssi != 0 && bean.rssi != Int.MAX_VALUE) data += "RSSI : ${bean.rssi}\n"
-                    if (bean.CINR != null && bean.CINR != 0 && bean.CINR != Int.MAX_VALUE) data += "CINR : ${bean.CINR}\n"
-                    if (bean.MCS != null && bean.MCS != 0 && bean.MCS != Int.MAX_VALUE) data += "MCS : ${bean.MCS}\n"
-                    if (bean.standard != null && bean.standard != 0 && bean.standard != Int.MAX_VALUE) data += "Standard : ${bean.standard}\n"
-
-                    logData += data
+                    val log = """${if (data.isConnected) "WIFI_Conn" else "WIFI_Scan"}
+                        |BSSID : ${data.BSSID}
+                        |SSID : ${data.SSID}
+                        |Frequency : ${data.frequency}
+                        |BandWidth : ${data.bandWidth}
+                        |Channel : ${data.channel}
+                        |RSSI : ${data.RSSI}
+                        |CINR : ${data.CINR}
+                        |MCS : ${data.MCS}
+                        |Standard : ${data.standard}
+                        |Scan_No : ${data.scan_no}
+                    """.trimMargin()
+                    logData += log
                 }
             }
+//            logData += Gson().toJson(data).toString()
             logData += "\n----\n"
         }
         if (mAdapter.size() > 0) {

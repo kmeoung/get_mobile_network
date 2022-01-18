@@ -8,5 +8,5 @@ interface IOWifiListener {
 
     fun scanFailure(results : List<ScanResult>?)
 
-    fun scanEnded(results : List<ScanResult>)
+    fun scanEnded()
 }

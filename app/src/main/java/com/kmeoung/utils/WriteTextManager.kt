@@ -48,7 +48,6 @@ object WriteTextManager {
     //TODO ==== 텍스트 저장 메소드 ====
     fun setSaveText(context: Context, data: String): String {
         try {
-
             val now = System.currentTimeMillis() //TODO 현재시간 받아오기
             val date = Date(now) //TODO Date 객체 생성
             var sdf = SimpleDateFormat("yyyyMMddkkmmss")
