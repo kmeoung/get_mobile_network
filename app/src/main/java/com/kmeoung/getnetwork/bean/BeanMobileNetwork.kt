@@ -13,5 +13,7 @@ data class BeanMobileNetwork(
     @SerializedName("SINR") var SINR: Int = -999,
     @SerializedName("CQI") var CQI: Int = -999,
     @SerializedName("MCS") var MCS: Int = -999,
-    @SerializedName("Scan_No") var scan_no: Int = 0
+    @SerializedName("data_idx") var data_idx: Int = 0,
+    @SerializedName("meas_idx") var meas_idx: Int = 0,
+    @SerializedName("meas_time") var meas_time: String = "-999",
 )

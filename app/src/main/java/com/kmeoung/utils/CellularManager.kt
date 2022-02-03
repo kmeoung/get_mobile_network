@@ -20,6 +20,9 @@ import android.content.Context.TELEPHONY_SERVICE
 
 import android.telephony.PhoneStateListener
 import com.kmeoung.getnetwork.bean.BeanMobileNetwork
+import java.text.SimpleDateFormat
+import java.util.*
+import kotlin.collections.ArrayList
 
 
 class CellularManager(private val context: Context) {
@@ -30,6 +33,8 @@ class CellularManager(private val context: Context) {
     ) as LocationManager
 
     private var mSignalStrength: SignalStrengthListener? = null
+
+    var useNumber = 0
 
     companion object {
         val REQUIRED_PERMISSION = arrayOf(
@@ -131,40 +136,42 @@ class CellularManager(private val context: Context) {
     }
 
     //10진수 -> 16진수
-    private fun DecToHex(dec: Long): String {
+    private fun decToHex(dec: Long): String {
         return String.format("%x", dec);
     }
 
     //16진수 -> 10진수
-    private fun HexToDec(hex: String): Int {
+    private fun hexToDec(hex: String): Int {
         return Integer.parseInt(hex, 16)
     }
 
     @SuppressLint("MissingPermission")
     fun getNodeBId(cid: Long): Int {
         //16진수 cid
-        var cellidHex = DecToHex(cid)
+        var cellIdHex = decToHex(cid)
 
         //16진수 eNB
         var eNBHex =
-            if (cellidHex.length > 2) cellidHex.substring(0, cellidHex.length - 2) else cellidHex
+            if (cellIdHex.length > 2) cellIdHex.substring(0, cellIdHex.length - 2) else cellIdHex
 
         //10진수 eNB
-        return HexToDec(eNBHex)
+        return hexToDec(eNBHex)
     }
 
 
     @SuppressLint("MissingPermission")
     fun getData(searchCount: Int): ArrayList<BeanMobileNetwork> {
-
+        useNumber++
         val array = ArrayList<BeanMobileNetwork>()
-
-        for (count in 1..searchCount) {
+        val cal = Calendar.getInstance()
+        val fmt = SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
+        for (count in 0 until searchCount) {
             val cellInfos =
                 (context.getSystemService(TELEPHONY_SERVICE) as TelephonyManager).allCellInfo
             val nbIdType = if (count == 1) "P" else "N"
 
-            for (cellInfo in cellInfos) {
+            for (i in 0 until cellInfos.size) {
+                val cellInfo = cellInfos[i]
                 var dbm: Int
                 val currentNetworkType = getType()
                 when {
@@ -194,7 +201,6 @@ class CellularManager(private val context: Context) {
                                     val sinr =
                                         (cellInfo.cellSignalStrength as CellSignalStrengthNr).ssSinr
 
-
                                     array.add(
                                         BeanMobileNetwork(
                                             currentNetworkType = currentNetworkType,
@@ -206,7 +212,8 @@ class CellularManager(private val context: Context) {
                                             SINR = if (sinr == 0 || sinr == Int.MAX_VALUE) DEFAULT_DATA else sinr,
                                             CQI = if (cqi == 0 || cqi == Int.MAX_VALUE) DEFAULT_DATA else cqi,
                                             MCS = if (mcs == 0 || mcs == Int.MAX_VALUE) DEFAULT_DATA else mcs,
-                                            scan_no = count, NB_ID_TYPE = nbIdType
+                                            data_idx = i, meas_idx = count, NB_ID_TYPE = nbIdType,
+                                            meas_time = fmt.format(cal.time)
                                         )
                                     )
                                 }
@@ -234,7 +241,8 @@ class CellularManager(private val context: Context) {
                                             SINR = if (sinr == 0 || sinr == Int.MAX_VALUE) DEFAULT_DATA else sinr,
                                             CQI = if (cqi == 0 || cqi == Int.MAX_VALUE) DEFAULT_DATA else cqi,
                                             MCS = if (mcs == 0 || mcs == Int.MAX_VALUE) DEFAULT_DATA else mcs,
-                                            scan_no = count, NB_ID_TYPE = nbIdType
+                                            data_idx = i, meas_idx = count, NB_ID_TYPE = nbIdType,
+                                            meas_time = fmt.format(cal.time)
                                         )
                                     )
                                 }
@@ -275,7 +283,10 @@ class CellularManager(private val context: Context) {
                                                 SINR = if (sinr == 0 || sinr == Int.MAX_VALUE) DEFAULT_DATA else sinr,
                                                 CQI = if (cqi == 0 || cqi == Int.MAX_VALUE) DEFAULT_DATA else cqi,
                                                 MCS = if (mcs == 0 || mcs == Int.MAX_VALUE) DEFAULT_DATA else mcs,
-                                                scan_no = count, NB_ID_TYPE = nbIdType
+                                                data_idx = i,
+                                                meas_idx = count,
+                                                NB_ID_TYPE = nbIdType,
+                                                meas_time = fmt.format(cal.time)
                                             )
                                         )
                                     }
@@ -311,7 +322,8 @@ class CellularManager(private val context: Context) {
                                     SINR = if (sinr == 0 || sinr == Int.MAX_VALUE) DEFAULT_DATA else sinr,
                                     CQI = if (cqi == 0 || cqi == Int.MAX_VALUE) DEFAULT_DATA else cqi,
                                     MCS = if (mcs == 0 || mcs == Int.MAX_VALUE) DEFAULT_DATA else mcs,
-                                    scan_no = count, NB_ID_TYPE = nbIdType
+                                    data_idx = i, meas_idx = count, NB_ID_TYPE = nbIdType,
+                                    meas_time = fmt.format(cal.time)
                                 )
                             )
                         }

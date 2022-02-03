@@ -54,7 +54,7 @@ object WriteTextManager {
             var nowTime: String = sdf.format(date)
             sdf = SimpleDateFormat("yyyy-MM-dd kk:mm:ss")
             saveData = data //TODO 변수에 값 대입
-            val textFileName = "/$nowTime.txt"
+            val textFileName = "/$nowTime.json"
             nowTime = sdf.format(date)
             //TODO 파일 생성
             val storageDir =

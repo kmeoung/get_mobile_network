@@ -23,15 +23,10 @@ import com.kmeoung.getnetwork.base.BaseViewHolder
 import com.kmeoung.getnetwork.base.IORecyclerViewListener
 import com.kmeoung.getnetwork.bean.*
 import com.kmeoung.getnetwork.databinding.MainActivityBinding
-import com.kmeoung.utils.CellularManager
-import com.kmeoung.utils.IOWifiListener
-import com.kmeoung.utils.WifiManager
-import com.kmeoung.utils.WriteTextManager
 import java.text.SimpleDateFormat
 import java.util.*
-import android.telephony.TelephonyManager
-import android.telephony.SubscriptionInfo
-import android.telephony.SubscriptionManager
+import com.kmeoung.utils.*
+
 
 class MainActivity : BaseActivity() {
 
@@ -55,6 +50,9 @@ class MainActivity : BaseActivity() {
     private val mAdapter get() = _recyclerAdapter!!
     private var _wifiManager: WifiManager? = null
     private val mWifiManager get() = _wifiManager!!
+
+    private var _CellularManager: CellularManager? = null
+    private val mCellularManager get() = _CellularManager!!
     var cal: Calendar? = null
     val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
     var startDate: String = ""
@@ -64,11 +62,12 @@ class MainActivity : BaseActivity() {
     // TODO : temp
     private var _dialog: ProgressDialog? = null
 
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = MainActivityBinding.inflate(layoutInflater)
-
         _dialog = ProgressDialog(this@MainActivity)
+        _dialog!!.setCancelable(false)
 
         setContentView(binding.root)
 
@@ -77,7 +76,7 @@ class MainActivity : BaseActivity() {
         WriteTextManager.requestPermissions(this@MainActivity, REQUEST_PERMISSION_GRANT)
 
         binding.tvAddress.text =
-            "Sim Operator : ${getSimOperator()}\nAndroid API : ${Build.VERSION.SDK_INT}"
+            "Sim Operator : ${Utils.getSimOperator(baseContext)}\nAndroid API : ${Build.VERSION.SDK_INT}\nMAC Address : ${Utils.getMacAddress()}"
         binding.tvDate.text = "Start Scan : $startDate\nEnd Scan : $endDate"
         // 모바일 네트워크 먼저 로딩
         binding.btn.setOnClickListener { _ ->
@@ -99,38 +98,20 @@ class MainActivity : BaseActivity() {
         binding.rvList.layoutManager = LinearLayoutManager(this@MainActivity)
     }
 
-    @SuppressLint("MissingPermission")
-    private fun getSimOperator(): String {
-        //for dual sim mobile
-        val localSubscriptionManager = SubscriptionManager.from(this)
-        return if (localSubscriptionManager.activeSubscriptionInfoCount > 1) {
-            //if there are two sims in dual sim mobile
-            val localList: List<*> = localSubscriptionManager.activeSubscriptionInfoList
-            val simInfo = localList[0] as SubscriptionInfo
-//            val simInfo1 = localList[1] as SubscriptionInfo
-            simInfo.displayName.toString()
-            //                val sim2 = simInfo1.displayName.toString()
-        } else {
-            //if there is 1 sim in dual sim mobile
-            val tManager = baseContext
-                .getSystemService(TELEPHONY_SERVICE) as TelephonyManager
-            tManager.networkOperatorName
-        }
-    }
 
     /**
      * Get Cellular Information
      */
     @SuppressLint("MissingPermission")
     private fun getCellularInfo() {
-        var cellularInfo = CellularManager(this@MainActivity)
-        if (cellularInfo.checkPermissions()) {
-            if (cellularInfo.checkGps()) {
-                if (cellularInfo.checkInternet()) {
+        _CellularManager = CellularManager(this@MainActivity)
+        if (mCellularManager.checkPermissions()) {
+            if (mCellularManager.checkGps()) {
+                if (mCellularManager.checkInternet()) {
                     mAdapter.clear()
                     try {
                         getWifiInfo()
-                        for (data in cellularInfo.getData(3)) {
+                        for (data in mCellularManager.getData(3)) {
                             mAdapter.add(data)
                         }
                     } catch (e: Exception) {
@@ -154,7 +135,7 @@ class MainActivity : BaseActivity() {
             }
         } else {
             binding.btn.isEnabled = true
-            cellularInfo.requestPermissions(
+            mCellularManager.requestPermissions(
                 this@MainActivity, REQUEST_PERMISSION_GRANT
             )
         }
@@ -205,14 +186,15 @@ class MainActivity : BaseActivity() {
                         override fun scanEnded() {
                             binding.btn.isEnabled = true
                             if (_dialog != null && _dialog!!.isShowing) _dialog!!.dismiss()
-                            saveLog()
+                            Utils.dataFormatToJson(mAdapter.getList(), this@MainActivity)
                         }
                     })
+
                 } catch (e: Exception) {
                     binding.btn.isEnabled = true
                     if (_dialog != null && _dialog!!.isShowing) _dialog!!.dismiss()
                     e.printStackTrace()
-                    saveLog()
+                    Utils.dataFormatToJson(mAdapter.getList(), this@MainActivity)
                 }
             } else {
                 binding.btn.isEnabled = true
@@ -278,21 +260,24 @@ class MainActivity : BaseActivity() {
                     val data = mAdapter.get(i) as BeanMobileNetwork
                     llBg.setBackgroundColor(getColor(if (data.currentNetworkType == "LTE") R.color.teal_200 else R.color.teal_700))
                     tvTitle.text = """${data.currentNetworkType}
-                        CELL_ID : ${data.CELL_ID}
-                        ARFCN : ${data.ARFCN}
-                        PCI : ${data.PCI}
-                        RSRP : ${data.RSRP}
-                        RSRQ : ${data.RSRQ}
-                        SINR : ${data.SINR}
-                        CQI : ${data.CQI}
-                        MCS : ${data.MCS}
-                        Scan_No : ${data.scan_no}
-                    """.trimIndent()
+                        |meas_idx : ${data.meas_idx}
+                        |data_idx : ${data.data_idx}
+                        |CELL_ID : ${data.CELL_ID}
+                        |ARFCN : ${data.ARFCN}
+                        |PCI : ${data.PCI}
+                        |RSRP : ${data.RSRP}
+                        |RSRQ : ${data.RSRQ}
+                        |SINR : ${data.SINR}
+                        |CQI : ${data.CQI}
+                        |MCS : ${data.MCS}
+                    """.trimMargin()
                 }
                 TYPE_WIFI -> {
                     val data = mAdapter.get(i) as BeanWifiData
                     llBg.setBackgroundColor(getColor(if (data.isConnected) R.color.yellow_2 else R.color.yellow))
                     tvTitle.text = """${if (data.isConnected) "WIFI_Conn" else "WIFI_Scan"}
+                        |meas_idx : ${data.meas_idx}
+                        |data_idx : ${data.data_idx}
                         |BSSID : ${data.BSSID}
                         |SSID : ${data.SSID}
                         |Frequency : ${data.frequency}
@@ -302,7 +287,6 @@ class MainActivity : BaseActivity() {
                         |CINR : ${data.CINR}
                         |MCS : ${data.MCS}
                         |Standard : ${data.standard}
-                        |Scan_No : ${data.scan_no}
                     """.trimMargin()
                 }
             }
@@ -315,53 +299,5 @@ class MainActivity : BaseActivity() {
         }
     }
 
-    fun saveLog() {
-        cal = Calendar.getInstance()
-        endDate = sdf.format(cal!!.time)
-        binding.tvDate.text = "Start Scan : $startDate\nEnd Scan : $endDate"
-        // TODO : 데이터 로그 저장
-        var logData = ""
-        logData += "Sim Operator : ${getSimOperator()}\n"
-        logData += "Scan Start Time : $startDate \n"
-        logData += "Scan End Time : $endDate \n"
-        logData += "Android API : ${Build.VERSION.SDK_INT}\n"
-        for (data in mAdapter.getList()) {
-            when (data) {
-                is BeanMobileNetwork -> {
-                    val log = """${data.currentNetworkType}
-                        CELL_ID : ${data.CELL_ID}
-                        ARFCN : ${data.ARFCN}
-                        PCI : ${data.PCI}
-                        RSRP : ${data.RSRP}
-                        RSRQ : ${data.RSRQ}
-                        SINR : ${data.SINR}
-                        CQI : ${data.CQI}
-                        MCS : ${data.MCS}
-                        Scan_No : ${data.scan_no}
-                    """.trimIndent()
-                    logData += log
-                }
-                is BeanWifiData -> {
-                    val log = """${if (data.isConnected) "WIFI_Conn" else "WIFI_Scan"}
-                        |BSSID : ${data.BSSID}
-                        |SSID : ${data.SSID}
-                        |Frequency : ${data.frequency}
-                        |BandWidth : ${data.bandWidth}
-                        |Channel : ${data.channel}
-                        |RSSI : ${data.RSSI}
-                        |CINR : ${data.CINR}
-                        |MCS : ${data.MCS}
-                        |Standard : ${data.standard}
-                        |Scan_No : ${data.scan_no}
-                    """.trimMargin()
-                    logData += log
-                }
-            }
-//            logData += Gson().toJson(data).toString()
-            logData += "\n----\n"
-        }
-        if (mAdapter.size() > 0) {
-            WriteTextManager.setSaveText(this@MainActivity, logData)
-        }
-    }
+
 }
