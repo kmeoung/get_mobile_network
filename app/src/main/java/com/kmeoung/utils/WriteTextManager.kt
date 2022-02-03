@@ -71,7 +71,7 @@ object WriteTextManager {
                     false
                 )
             ) //TODO 한개 내용만 표시됨 (FALSE)
-            buf.append("[$nowTime]\n$saveData") //TODO 날짜 쓰기
+            buf.append("[$nowTime]\n$saveData&&KT_MRF&&") //TODO 날짜 쓰기
             buf.newLine() //TODO 개행
             buf.close()
             saveStorage = storageDir.toString() + textFileName //TODO 경로 저장 /storage 시작
@@ -93,6 +93,7 @@ object WriteTextManager {
             return saveStorage
         } catch (e: Exception) {
             e.printStackTrace()
+            Toast.makeText(context, "텍스트 파일이 저장에 실패하였습니다.", Toast.LENGTH_SHORT).show()
         }
         return ""
     }

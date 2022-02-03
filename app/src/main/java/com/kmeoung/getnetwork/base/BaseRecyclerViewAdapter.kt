@@ -54,6 +54,12 @@ class BaseRecyclerViewAdapter(listener: IORecyclerViewListener) :
     fun getList() : ArrayList<Any>{
         return mArray
     }
+
+    fun setList(dataList : ArrayList<Any>) {
+        mArray.clear()
+        mArray.addAll(dataList)
+        notifyDataSetChanged()
+    }
 }
 
 

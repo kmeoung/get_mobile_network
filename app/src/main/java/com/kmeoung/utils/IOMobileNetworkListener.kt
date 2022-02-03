@@ -11,4 +11,6 @@ interface IOMobileNetworkListener {
     fun wifiSearchCountOver()
 
     fun successFindInfo(jsonString : String,dataList:ArrayList<Any>? = null)
+
+    fun canNotCheckMobileNetwork()
 }

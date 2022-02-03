@@ -12,6 +12,33 @@ class MobileNetworkManager(private val context: Context) {
     private val buildTypeTest = 0
     private val buildTypeRelease = 1
 
+    companion object {
+        val REQUIRED_PERMISSION_CELLULAR = arrayOf(
+            "android.permission.ACCESS_FINE_LOCATION",
+            "android.permission.READ_PHONE_STATE"
+        )
+
+        val REQUIRED_PERMISSION_WIFI = arrayOf(
+            "android.permission.ACCESS_FINE_LOCATION",
+            "android.permission.ACCESS_COARSE_LOCATION",
+            "android.permission.CHANGE_WIFI_STATE"
+        )
+
+        val REQUIRED_PERMISSION_STORAGE = arrayOf(
+            "android.permission.WRITE_EXTERNAL_STORAGE",
+            "android.permission.READ_EXTERNAL_STORAGE"
+        )
+
+        val REQUIRED_PERMISSION = arrayOf(
+            "android.permission.ACCESS_FINE_LOCATION",
+            "android.permission.ACCESS_COARSE_LOCATION",
+            "android.permission.CHANGE_WIFI_STATE",
+            "android.permission.READ_PHONE_STATE",
+            "android.permission.WRITE_EXTERNAL_STORAGE",
+            "android.permission.READ_EXTERNAL_STORAGE"
+        )
+    }
+
     /**
      * 테스트용 네트워크 정보 가져오기
      * 내부 스토리지 접근 권환 선 확인 필요
@@ -40,7 +67,7 @@ class MobileNetworkManager(private val context: Context) {
                         )
                     } catch (e: Exception) {
                         e.printStackTrace()
-                        mobileNetworkListener.disableInternet()
+                        mobileNetworkListener.canNotCheckMobileNetwork()
                     }
                 } else {
                     mobileNetworkListener.disableInternet()
@@ -132,6 +159,8 @@ class MobileNetworkManager(private val context: Context) {
                         }
                         buildTypeRelease -> mobileNetworkListener.successFindInfo(dataJson.toString())
                     }
+                    // WIFI Receiver 사용 후 등록해제
+                    wifiManager.dispose()
                 }
             })
 

@@ -15,6 +15,7 @@ import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import androidx.core.app.ActivityCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.kmeoung.getnetwork.R
 import com.kmeoung.getnetwork.base.BaseActivity
@@ -26,6 +27,7 @@ import com.kmeoung.getnetwork.databinding.MainActivityBinding
 import java.text.SimpleDateFormat
 import java.util.*
 import com.kmeoung.utils.*
+import kotlin.collections.ArrayList
 
 
 class MainActivity : BaseActivity() {
@@ -48,12 +50,6 @@ class MainActivity : BaseActivity() {
     private lateinit var binding: MainActivityBinding
     private var _recyclerAdapter: BaseRecyclerViewAdapter? = null
     private val mAdapter get() = _recyclerAdapter!!
-    private var _wifiManager: WifiManager? = null
-    private val mWifiManager get() = _wifiManager!!
-
-    private var _CellularManager: CellularManager? = null
-    private val mCellularManager get() = _CellularManager!!
-    var cal: Calendar? = null
     val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
     var startDate: String = ""
     var endDate: String = ""
@@ -73,20 +69,77 @@ class MainActivity : BaseActivity() {
 
         initAdapter()
 
-        WriteTextManager.requestPermissions(this@MainActivity, REQUEST_PERMISSION_GRANT)
-
         binding.tvAddress.text =
             "Sim Operator : ${Utils.getSimOperator(baseContext)}\nAndroid API : ${Build.VERSION.SDK_INT}\nMAC Address : ${Utils.getMacAddress()}"
         binding.tvDate.text = "Start Scan : $startDate\nEnd Scan : $endDate"
         // 모바일 네트워크 먼저 로딩
         binding.btn.setOnClickListener { _ ->
+            mAdapter.clear()
             binding.btn.isEnabled = false
             if (_dialog != null) _dialog!!.show()
-            cal = Calendar.getInstance()
-            startDate = sdf.format(cal!!.time)
-            getCellularInfo()
-        }
 
+            startDate = sdf.format(Calendar.getInstance().time)
+            getNetworkInfo()
+        }
+    }
+
+    private fun getNetworkInfo() {
+        val networkManager = MobileNetworkManager(this@MainActivity)
+        networkManager.getTestNetworkInfo(object : IOMobileNetworkListener {
+            override fun denidedPermission() {
+                ActivityCompat.requestPermissions(
+                    this@MainActivity, MobileNetworkManager.REQUIRED_PERMISSION,
+                    REQUEST_PERMISSION_GRANT
+                )
+                binding.btn.isEnabled = true
+                if (_dialog != null && _dialog!!.isShowing) _dialog!!.dismiss()
+            }
+
+            override fun disableGps() {
+                Toast.makeText(this@MainActivity, ACTIVE_LOCATION_INFORMATION, Toast.LENGTH_SHORT)
+                    .show()
+                binding.btn.isEnabled = true
+                if (_dialog != null && _dialog!!.isShowing) _dialog!!.dismiss()
+            }
+
+            override fun disableInternet() {
+                Toast.makeText(
+                    this@MainActivity,
+                    ACTIVE_MOBILE_NETWORK,
+                    Toast.LENGTH_SHORT
+                ).show()
+                binding.btn.isEnabled = true
+                if (_dialog != null && _dialog!!.isShowing) _dialog!!.dismiss()
+            }
+
+            override fun canNotCheckMobileNetwork() {
+                Toast.makeText(this@MainActivity, CAN_NOT_CHECK_NETWORK, Toast.LENGTH_SHORT)
+                    .show()
+            }
+
+            override fun wifiSearchCountOver() {
+                Toast.makeText(
+                    this@MainActivity,
+                    PLEASE_WAIT_2MINUTE,
+                    Toast.LENGTH_SHORT
+                )
+                    .show()
+                binding.btn.isEnabled = true
+                if (_dialog != null && _dialog!!.isShowing) _dialog!!.dismiss()
+            }
+
+            override fun successFindInfo(jsonString: String, dataList: ArrayList<Any>?) {
+                if (dataList != null) {
+                    mAdapter.setList(dataList)
+                }
+
+                endDate = sdf.format(Calendar.getInstance().time)
+                binding.tvDate.text = "Start Scan : $startDate\nEnd Scan : $endDate"
+
+                binding.btn.isEnabled = true
+                if (_dialog != null && _dialog!!.isShowing) _dialog!!.dismiss()
+            }
+        })
     }
 
     /**
@@ -98,124 +151,9 @@ class MainActivity : BaseActivity() {
         binding.rvList.layoutManager = LinearLayoutManager(this@MainActivity)
     }
 
-
-    /**
-     * Get Cellular Information
-     */
-    @SuppressLint("MissingPermission")
-    private fun getCellularInfo() {
-        _CellularManager = CellularManager(this@MainActivity)
-        if (mCellularManager.checkPermissions()) {
-            if (mCellularManager.checkGps()) {
-                if (mCellularManager.checkInternet()) {
-                    mAdapter.clear()
-                    try {
-                        getWifiInfo()
-                        for (data in mCellularManager.getData(3)) {
-                            mAdapter.add(data)
-                        }
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                        Toast.makeText(this@MainActivity, CAN_NOT_CHECK_NETWORK, Toast.LENGTH_SHORT)
-                            .show()
-                    }
-                } else {
-                    binding.btn.isEnabled = true
-                    Toast.makeText(
-                        this@MainActivity,
-                        ACTIVE_MOBILE_NETWORK,
-                        Toast.LENGTH_SHORT
-                    )
-                        .show()
-                }
-            } else {
-                binding.btn.isEnabled = true
-                Toast.makeText(this@MainActivity, ACTIVE_LOCATION_INFORMATION, Toast.LENGTH_SHORT)
-                    .show()
-            }
-        } else {
-            binding.btn.isEnabled = true
-            mCellularManager.requestPermissions(
-                this@MainActivity, REQUEST_PERMISSION_GRANT
-            )
-        }
-    }
-
-    /**
-     * Get WIFI Information
-     */
-    private fun getWifiInfo() {
-//        WIFI 제한사항
-//        안드로이드 배터리 수명을 늘리기 위해 안드로이드 와이파이 검색을 하는 주기를 제한함
-//        Android 8 / 8.1
-//        백그라운드 앱은 30분 간격으로 1회 스캔 가능
-//        Android 9이상
-//        각 포그라운드 앱은 2분 간격으로 4회 스캔할 수 있습니다. 이 경우, 단시간에 여러 번의 스캔이 가능하게 됩니다.
-//        백그라운드 앱은 모두 합쳐서 30분 간격으로 1회 스캔할 수 있습니다.
-//        ContextCompat.checkSelfPermission(context,PERMISSION)
-        // TODO : 현재 연결된 데이터 확인
-        val connectivityManager =
-            getSystemService(ConnectivityManager::class.java)
-        val currentNetwork = connectivityManager.activeNetwork
-        val caps: NetworkCapabilities? = connectivityManager.getNetworkCapabilities(currentNetwork)
-        val linkProperties: LinkProperties? = connectivityManager.getLinkProperties(currentNetwork)
-        Log.d(TAG, linkProperties.toString())
-        Log.d(TAG, caps.toString())
-
-        _wifiManager = WifiManager(this@MainActivity)
-        if (mWifiManager.checkPermissions()) {
-            if (mWifiManager.checkGps()) {
-                if (_dialog != null) _dialog!!.show()
-                try {
-                    mWifiManager.scanStart(3, object : IOWifiListener {
-                        override fun scanSuccess(wifiData: BeanWifiData) {
-                            Log.d(TAG, "Wifi Scan Success")
-                            mAdapter.add(wifiData)
-                        }
-
-                        override fun scanFailure(results: List<ScanResult>?) {
-                            Toast.makeText(
-                                this@MainActivity,
-                                PLEASE_WAIT_2MINUTE,
-                                Toast.LENGTH_SHORT
-                            )
-                                .show()
-                            Log.d(TAG, "Wifi Scan Failed")
-                        }
-
-                        override fun scanEnded() {
-                            binding.btn.isEnabled = true
-                            if (_dialog != null && _dialog!!.isShowing) _dialog!!.dismiss()
-                            Utils.dataFormatToJson(mAdapter.getList(), this@MainActivity)
-                        }
-                    })
-
-                } catch (e: Exception) {
-                    binding.btn.isEnabled = true
-                    if (_dialog != null && _dialog!!.isShowing) _dialog!!.dismiss()
-                    e.printStackTrace()
-                    Utils.dataFormatToJson(mAdapter.getList(), this@MainActivity)
-                }
-            } else {
-                binding.btn.isEnabled = true
-                if (_dialog != null && _dialog!!.isShowing) _dialog!!.dismiss()
-                Toast.makeText(this@MainActivity, ACTIVE_LOCATION_INFORMATION, Toast.LENGTH_SHORT)
-                    .show()
-            }
-        } else {
-            binding.btn.isEnabled = true
-            if (_dialog != null && _dialog!!.isShowing) _dialog!!.dismiss()
-            mWifiManager.requestPermissions(
-                this@MainActivity,
-                REQUEST_PERMISSION_GRANT
-            )
-        }
-    }
-
     override fun onStop() {
         super.onStop()
         if (_dialog != null && _dialog!!.isShowing) _dialog!!.dismiss()
-        mWifiManager.dispose()
     }
 
     override fun onRequestPermissionsResult(
