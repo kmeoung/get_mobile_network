@@ -1,11 +1,15 @@
 package com.kmeoung.utils
 
+import android.annotation.SuppressLint
 import android.app.Activity
+import android.app.AlertDialog
+import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.PackageManager.PERMISSION_GRANTED
 import android.net.Uri
+import android.os.Build
 import android.provider.DocumentsContract
 import android.util.Log
 import androidx.core.app.ActivityCompat
@@ -18,6 +22,10 @@ import java.io.FileWriter
 import java.io.BufferedWriter
 
 import android.os.Environment
+import android.provider.MediaStore
+import android.provider.Settings
+import androidx.core.net.toFile
+import com.kmeoung.getnetwork.ui.activity.MainActivity
 
 import java.io.File
 import java.text.SimpleDateFormat
@@ -35,10 +43,14 @@ object WriteTextManager {
 
     private val TAG = "WRITE_TEXT_MANAGER"
 
-    val REQUIRED_PERMISSION = arrayOf<String>(
-        "android.permission.WRITE_EXTERNAL_STORAGE",
-        "android.permission.READ_EXTERNAL_STORAGE"
-    )
+    val REQUIRED_PERMISSION = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        arrayOf(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
+    } else {
+        arrayOf(
+            "android.permission.WRITE_EXTERNAL_STORAGE",
+            "android.permission.READ_EXTERNAL_STORAGE"
+        )
+    }
 
     var saveStorage = "" //저장된 파일 경로
 
@@ -46,6 +58,7 @@ object WriteTextManager {
 
 
     //TODO ==== 텍스트 저장 메소드 ====
+    @SuppressLint("SimpleDateFormat")
     fun setSaveText(context: Context, data: String): String {
         try {
             val now = System.currentTimeMillis() //TODO 현재시간 받아오기
@@ -56,6 +69,7 @@ object WriteTextManager {
             saveData = data //TODO 변수에 값 대입
             val textFileName = "/$nowTime.json"
             nowTime = sdf.format(date)
+
             //TODO 파일 생성
             val storageDir =
                 File(Environment.getExternalStorageDirectory().absolutePath + "/Wifi_And_Cellular_Checker") //TODO 저장 경로
@@ -91,10 +105,12 @@ object WriteTextManager {
             Log.d(TAG, "---")
             Toast.makeText(context, "텍스트 파일이 저장되었습니다", Toast.LENGTH_SHORT).show()
             return saveStorage
+
         } catch (e: Exception) {
             e.printStackTrace()
             Toast.makeText(context, "텍스트 파일이 저장에 실패하였습니다.", Toast.LENGTH_SHORT).show()
         }
+
         return ""
     }
 
@@ -105,11 +121,17 @@ object WriteTextManager {
      */
     fun checkPermissions(context: Context): Boolean {
         var isGranted = true
-        for (permission in REQUIRED_PERMISSION) {
-            val per = ContextCompat.checkSelfPermission(context, permission)
-            if (per != PERMISSION_GRANTED) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            if (!Environment.isExternalStorageManager()) {
                 isGranted = false
-                break
+            }
+        } else {
+            for (permission in REQUIRED_PERMISSION) {
+                val per = ContextCompat.checkSelfPermission(context, permission)
+                if (per != PERMISSION_GRANTED) {
+                    isGranted = false
+                    break
+                }
             }
         }
         return isGranted
@@ -120,10 +142,29 @@ object WriteTextManager {
      * @param activity, requestCode
      */
     fun requestPermissions(activity: Activity, requestCode: Int) {
-        ActivityCompat.requestPermissions(
-            activity, REQUIRED_PERMISSION,
-            requestCode
-        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            if (!Environment.isExternalStorageManager()) {
+                try {
+                    activity.startActivityForResult(Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
+                        addCategory("android.intent.category.DEFAULT")
+                        data =
+                            Uri.parse(String.format("package:%s", activity.baseContext.packageName))
+                    }, 300)
+                } catch (e: Exception) {
+                    activity.startActivityForResult(Intent().apply {
+                        action = Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION
+                    }, 300)
+                }
+            } else {
+//                activity.startActivity()
+            }
+        } else {
+            ActivityCompat.requestPermissions(
+                activity, REQUIRED_PERMISSION,
+                requestCode
+            )
+        }
+
     }
 
 

@@ -1,4 +1,4 @@
-package com.kmeoung.utils
+package com.kmeoung.utils.network
 
 import android.app.Activity
 import android.content.BroadcastReceiver
@@ -14,6 +14,7 @@ import android.util.Log
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.kmeoung.getnetwork.bean.BeanWifiData
+import com.kmeoung.utils.network.listener.IOWifiListener
 import java.lang.Exception
 import java.text.SimpleDateFormat
 import java.util.*

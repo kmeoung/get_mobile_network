@@ -1,4 +1,4 @@
-package com.kmeoung.utils
+package com.kmeoung.utils.network
 
 import android.annotation.SuppressLint
 import android.app.Activity

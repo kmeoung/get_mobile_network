@@ -3,14 +3,13 @@ package com.kmeoung.getnetwork.ui.activity
 import android.annotation.SuppressLint
 import android.app.AlertDialog
 import android.app.ProgressDialog
+import android.content.Intent
 import android.content.pm.PackageManager
-import android.net.ConnectivityManager
-import android.net.LinkProperties
-import android.net.NetworkCapabilities
-import android.net.wifi.ScanResult
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.util.Log
+import android.os.Environment
+import android.provider.DocumentsContract
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -27,6 +26,8 @@ import com.kmeoung.getnetwork.databinding.MainActivityBinding
 import java.text.SimpleDateFormat
 import java.util.*
 import com.kmeoung.utils.*
+import com.kmeoung.utils.network.listener.IOMobileNetworkListener
+import com.kmeoung.utils.network.MobileNetworkManager
 import kotlin.collections.ArrayList
 
 
@@ -34,6 +35,7 @@ class MainActivity : BaseActivity() {
 
     companion object {
         private const val REQUEST_PERMISSION_GRANT = 3000
+        private const val REQUEST_STORAGE_PERMISSION_GRANT = 3001
         private const val TAG = "MAIN_ACTIVITY_TAG"
 
         private const val TYPE_CELLULAR = 0
@@ -50,6 +52,8 @@ class MainActivity : BaseActivity() {
     private lateinit var binding: MainActivityBinding
     private var _recyclerAdapter: BaseRecyclerViewAdapter? = null
     private val mAdapter get() = _recyclerAdapter!!
+
+    @SuppressLint("SimpleDateFormat")
     val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
     var startDate: String = ""
     var endDate: String = ""
@@ -80,17 +84,45 @@ class MainActivity : BaseActivity() {
 
             startDate = sdf.format(Calendar.getInstance().time)
             getNetworkInfo()
+
         }
+    }
+
+    val CREATE_FILE = 1
+
+    private fun createFile(pickerInitialUri: Uri) {
+        startActivityForResult(Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "application/json"
+            putExtra(Intent.EXTRA_TITLE, "invoice.json")
+
+            // Optionally, specify a URI for the directory that should be opened in
+            // the system file picker before your app creates the document.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                putExtra(DocumentsContract.EXTRA_INITIAL_URI, pickerInitialUri)
+            }
+        }, CREATE_FILE)
     }
 
     private fun getNetworkInfo() {
         val networkManager = MobileNetworkManager(this@MainActivity)
         networkManager.getTestNetworkInfo(object : IOMobileNetworkListener {
-            override fun denidedPermission() {
+            override fun denidedStoragePermission() {
+                WriteTextManager.requestPermissions(
+                    this@MainActivity,
+                    REQUEST_STORAGE_PERMISSION_GRANT
+                )
+
+                binding.btn.isEnabled = true
+                if (_dialog != null && _dialog!!.isShowing) _dialog!!.dismiss()
+            }
+
+            override fun denidedNeworkPermission() {
                 ActivityCompat.requestPermissions(
-                    this@MainActivity, MobileNetworkManager.REQUIRED_PERMISSION,
+                    this@MainActivity, MobileNetworkManager.REQUIRED_PERMISSION_TEST,
                     REQUEST_PERMISSION_GRANT
                 )
+
                 binding.btn.isEnabled = true
                 if (_dialog != null && _dialog!!.isShowing) _dialog!!.dismiss()
             }
@@ -177,6 +209,17 @@ class MainActivity : BaseActivity() {
                 builder.show()
             }
 
+        } else if (requestCode == REQUEST_STORAGE_PERMISSION_GRANT) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                if (!Environment.isExternalStorageManager()) {
+                    val builder = AlertDialog.Builder(this@MainActivity)
+                    builder.setMessage(REQUEST_PERMISSIONS)
+                    builder.setPositiveButton(
+                        CONFIRM
+                    ) { dialog, _ -> dialog.dismiss() }
+                    builder.show()
+                }
+            }
         }
     }
 
