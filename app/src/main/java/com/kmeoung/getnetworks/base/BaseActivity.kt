@@ -1,4 +1,4 @@
-package com.kmeoung.getnetwork.base
+package com.kmeoung.getnetworks.base
 
 import android.view.View
 import androidx.appcompat.app.AppCompatActivity

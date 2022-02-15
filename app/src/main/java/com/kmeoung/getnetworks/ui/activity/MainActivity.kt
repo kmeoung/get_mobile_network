@@ -1,4 +1,4 @@
-package com.kmeoung.getnetwork.ui.activity
+package com.kmeoung.getnetworks.ui.activity
 
 import android.annotation.SuppressLint
 import android.app.AlertDialog
@@ -10,25 +10,25 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.provider.DocumentsContract
+import android.provider.Settings
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.kmeoung.getnetwork.R
-import com.kmeoung.getnetwork.base.BaseActivity
-import com.kmeoung.getnetwork.base.BaseRecyclerViewAdapter
-import com.kmeoung.getnetwork.base.BaseViewHolder
-import com.kmeoung.getnetwork.base.IORecyclerViewListener
-import com.kmeoung.getnetwork.bean.*
-import com.kmeoung.getnetwork.databinding.MainActivityBinding
+import com.kmeoung.getnetworks.R
+import com.kmeoung.getnetworks.base.BaseActivity
+import com.kmeoung.getnetworks.base.BaseRecyclerViewAdapter
+import com.kmeoung.getnetworks.base.BaseViewHolder
+import com.kmeoung.getnetworks.base.IORecyclerViewListener
+import com.kmeoung.getnetworks.bean.*
+import com.kmeoung.getnetworks.databinding.MainActivityBinding
+import com.kmeoung.utils.*
+import com.kmeoung.utils.network.MobileNetworkManager
+import com.kmeoung.utils.network.listener.IOMobileNetworkListener
 import java.text.SimpleDateFormat
 import java.util.*
-import com.kmeoung.utils.*
-import com.kmeoung.utils.network.listener.IOMobileNetworkListener
-import com.kmeoung.utils.network.MobileNetworkManager
-import kotlin.collections.ArrayList
 
 
 class MainActivity : BaseActivity() {
@@ -63,6 +63,7 @@ class MainActivity : BaseActivity() {
     private var _dialog: ProgressDialog? = null
 
 
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = MainActivityBinding.inflate(layoutInflater)
@@ -71,10 +72,17 @@ class MainActivity : BaseActivity() {
 
         setContentView(binding.root)
 
-        initAdapter()
+        val android_id: String = Settings.Secure.getString(
+            applicationContext.contentResolver,
+            Settings.Secure.ANDROID_ID
+        )
 
+        Comm_Prefs.setAndroidId(android_id)
+
+
+        initAdapter()
         binding.tvAddress.text =
-            "Sim Operator : ${Utils.getSimOperator(baseContext)}\nAndroid API : ${Build.VERSION.SDK_INT}\nMAC Address : ${Utils.getMacAddress()}"
+            "Sim Operator : ${Utils.getSimOperator(baseContext)}\nAndroid API : ${Build.VERSION.SDK_INT}\nAndroid ID : ${android_id}"
         binding.tvDate.text = "Start Scan : $startDate\nEnd Scan : $endDate"
         // 모바일 네트워크 먼저 로딩
         binding.btn.setOnClickListener { _ ->
@@ -162,7 +170,22 @@ class MainActivity : BaseActivity() {
 
             override fun successFindInfo(jsonString: String, dataList: ArrayList<Any>?) {
                 if (dataList != null) {
-                    mAdapter.setList(dataList)
+                    val networks = ArrayList<Any>()
+                    val mobileNetwork = ArrayList<BeanMobileNetwork>()
+                    val wifiNetwork = ArrayList<BeanWifiData>()
+                    for (data in dataList) {
+                        when (data) {
+                            is BeanMobileNetwork -> {
+                                mobileNetwork.add(data)
+                            }
+                            is BeanWifiData -> {
+                                wifiNetwork.add(data)
+                            }
+                        }
+                    }
+                    networks.addAll(mobileNetwork)
+                    networks.addAll(wifiNetwork)
+                    mAdapter.setList(networks)
                 }
 
                 endDate = sdf.format(Calendar.getInstance().time)
@@ -256,7 +279,7 @@ class MainActivity : BaseActivity() {
                 TYPE_WIFI -> {
                     val data = mAdapter.get(i) as BeanWifiData
                     llBg.setBackgroundColor(getColor(if (data.isConnected) R.color.yellow_2 else R.color.yellow))
-                    tvTitle.text = """${if (data.isConnected) "WIFI_Conn" else "WIFI_Scan"}
+                    tvTitle.text = """${if (data.isConnected) "WiFi_Conn" else "WiFi_Scan"}
                         |meas_idx : ${data.meas_idx}
                         |data_idx : ${data.data_idx}
                         |BSSID : ${data.BSSID}

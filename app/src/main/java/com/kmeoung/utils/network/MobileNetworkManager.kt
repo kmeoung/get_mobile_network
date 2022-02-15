@@ -4,8 +4,9 @@ import android.content.Context
 import android.net.wifi.ScanResult
 import android.os.Build
 import android.provider.Settings
-import com.kmeoung.getnetwork.bean.BeanMobileNetwork
-import com.kmeoung.getnetwork.bean.BeanWifiData
+import com.kmeoung.getnetworks.bean.BeanMobileNetwork
+import com.kmeoung.getnetworks.bean.BeanWifiData
+import com.kmeoung.utils.Comm_Prefs
 import com.kmeoung.utils.Utils
 import com.kmeoung.utils.WriteTextManager
 import com.kmeoung.utils.network.listener.IOMobileNetworkListener
@@ -86,7 +87,7 @@ class MobileNetworkManager(private val context: Context) {
                         val networkList = ArrayList<Any>()
                         try {
                             // 모바일 네트워크 데이터 확인
-                            for (data in cellularManager.getData(3)) {
+                            for (data in cellularManager.getData(2)) {
                                 networkList.add(data)
                             }
                             // WIFI 호출
@@ -108,6 +109,8 @@ class MobileNetworkManager(private val context: Context) {
                     mobileNetworkListener.disableGps()
 
                 }
+            } else {
+                mobileNetworkListener.denidedNeworkPermission()
             }
         } else {
             mobileNetworkListener.denidedStoragePermission()
@@ -128,7 +131,7 @@ class MobileNetworkManager(private val context: Context) {
                     val networkList = ArrayList<Any>()
                     try {
                         // 모바일 네트워크 데이터 확인
-                        for (data in cellularManager.getData(3)) {
+                        for (data in cellularManager.getData(2)) {
                             networkList.add(data)
                         }
 
@@ -174,7 +177,7 @@ class MobileNetworkManager(private val context: Context) {
         buildType: Int
     ) {
         try {
-            wifiManager.scanStart(3, object : IOWifiListener {
+            wifiManager.scanStart(4, object : IOWifiListener {
                 override fun scanSuccess(wifiData: BeanWifiData) {
                     networkList.add(wifiData)
                 }
@@ -184,6 +187,18 @@ class MobileNetworkManager(private val context: Context) {
                 }
 
                 override fun scanEnded() {
+                    val cellularManager = CellularManager(context)
+                    try {
+                        // 모바일 네트워크 데이터 확인
+                        for (data in cellularManager.getData(2)) {
+                            networkList.add(data)
+                        }
+
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                        mobileNetworkListener.canNotCheckMobileNetwork()
+                    }
+
                     val dataJson = dataFormatToJson(networkList, context)
                     when (buildType) {
                         buildTypeTest -> {
@@ -220,13 +235,12 @@ class MobileNetworkManager(private val context: Context) {
         jsonGenieverse.put("home_id", "")
         jsonGenieverse.put("meas_mode", 0)
         jsonGenieverse.put("meas_proc", 0)
-        jsonGenieverse.put("position_idx_A", JSONArray())
-
+        jsonGenieverse.put("position_idx_A",JSONArray())
         json.put("Com_Genieverse", jsonGenieverse)
 
         val jsonMRFH = JSONObject()
 
-        jsonMRFH.put("ue_mac", Utils.getMacAddress())
+        jsonMRFH.put("android_id", Comm_Prefs.getAndroidId())
         jsonMRFH.put("sim_operator", Utils.getSimOperator(context))
         jsonMRFH.put("android_api", Build.VERSION.SDK_INT)
 
@@ -244,10 +258,11 @@ class MobileNetworkManager(private val context: Context) {
                     networks.put("data_idx", data.data_idx)
                     networks.put("meas_time", data.meas_time)
                     networks.put("cell_id", data.CELL_ID)
-                    networks.put("arfnc", data.ARFCN)
+                    networks.put("arfcn", data.ARFCN)
                     networks.put("pci", data.PCI)
                     networks.put("rsrp", data.RSRP)
                     networks.put("rsrq", data.RSRQ)
+                    networks.put("sinr", data.SINR)
                     networks.put("cqi", data.CQI)
                     networks.put("mcs", data.MCS)
 
@@ -281,10 +296,15 @@ class MobileNetworkManager(private val context: Context) {
                 }
             }
         }
-        json.put("LTE", lteNetworks)
-        json.put("5G", nrNetworks)
-        json.put("WIFI_Conn", wifiConn)
-        json.put("WIFI_Scan", wifiScan)
+
+        val networkData = JSONObject()
+
+        networkData.put("LTE", lteNetworks)
+        networkData.put("5G", nrNetworks)
+        networkData.put("WiFi_Conn", wifiConn)
+        networkData.put("WiFi_Scan", wifiScan)
+
+        json.put("Data", networkData)
         return json
     }
 

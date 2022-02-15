@@ -2,19 +2,14 @@ package com.kmeoung.utils
 
 import android.annotation.SuppressLint
 import android.app.Activity
-import android.app.AlertDialog
-import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.content.pm.PackageManager.PERMISSION_GRANTED
 import android.net.Uri
 import android.os.Build
-import android.provider.DocumentsContract
 import android.util.Log
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import java.io.*
 import android.widget.Toast
 
 import java.io.FileWriter
@@ -22,21 +17,11 @@ import java.io.FileWriter
 import java.io.BufferedWriter
 
 import android.os.Environment
-import android.provider.MediaStore
 import android.provider.Settings
-import androidx.core.net.toFile
-import com.kmeoung.getnetwork.ui.activity.MainActivity
 
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
-import java.io.IOException
-
-import java.io.FileNotFoundException
-
-import java.io.FileReader
-
-import java.io.BufferedReader
 
 
 object WriteTextManager {
@@ -85,7 +70,7 @@ object WriteTextManager {
                     false
                 )
             ) //TODO 한개 내용만 표시됨 (FALSE)
-            buf.append("[$nowTime]\n$saveData&&KT_MRF&&") //TODO 날짜 쓰기
+            buf.append(saveData) //TODO 날짜 쓰기
             buf.newLine() //TODO 개행
             buf.close()
             saveStorage = storageDir.toString() + textFileName //TODO 경로 저장 /storage 시작

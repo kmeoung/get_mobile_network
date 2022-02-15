@@ -1,4 +1,4 @@
-package com.kmeoung.getnetwork.bean
+package com.kmeoung.getnetworks.bean
 
 import com.google.gson.annotations.SerializedName
 

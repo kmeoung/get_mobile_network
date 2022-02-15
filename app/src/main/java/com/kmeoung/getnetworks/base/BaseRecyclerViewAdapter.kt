@@ -1,8 +1,7 @@
-package com.kmeoung.getnetwork.base
+package com.kmeoung.getnetworks.base
 
 import androidx.recyclerview.widget.RecyclerView
 import android.view.ViewGroup
-import java.util.*
 import kotlin.collections.ArrayList
 
 class BaseRecyclerViewAdapter(listener: IORecyclerViewListener) :

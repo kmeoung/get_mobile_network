@@ -2,16 +2,10 @@ package com.kmeoung.utils
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.content.pm.PackageInfo
-import android.os.Build
 import android.telephony.SubscriptionInfo
 import android.telephony.SubscriptionManager
 import android.telephony.TelephonyManager
 import androidx.appcompat.app.AppCompatActivity
-import com.kmeoung.getnetwork.bean.BeanMobileNetwork
-import com.kmeoung.getnetwork.bean.BeanWifiData
-import org.json.JSONArray
-import org.json.JSONObject
 
 import java.net.NetworkInterface
 import java.net.SocketException
@@ -31,22 +25,26 @@ object Utils {
             for (networkInterface in networkInterfaceList) {
                 if (networkInterface.name.equals("wlan0", ignoreCase = true)) {
                     run {
-                        for (i in networkInterface.hardwareAddress.indices) {
-                            val aa = networkInterface.hardwareAddress[i] and 0xFF.toByte()
-                            var stringMacByte = Integer.toHexString(
-                                aa.toInt()
-                            )
-
-                            if (stringMacByte.length == 1) {
-                                stringMacByte = "0$stringMacByte"
-                            } else if (stringMacByte.length > 2) {
-                                stringMacByte = stringMacByte.substring(
-                                    stringMacByte.length - 2,
-                                    stringMacByte.length
+                        if (networkInterface.hardwareAddress != null) {
+                            for (i in networkInterface.hardwareAddress.indices) {
+                                val aa = networkInterface.hardwareAddress[i] and 0xFF.toByte()
+                                var stringMacByte = Integer.toHexString(
+                                    aa.toInt()
                                 )
+
+                                if (stringMacByte.length == 1) {
+                                    stringMacByte = "0$stringMacByte"
+                                } else if (stringMacByte.length > 2) {
+                                    stringMacByte = stringMacByte.substring(
+                                        stringMacByte.length - 2,
+                                        stringMacByte.length
+                                    )
+                                }
+                                stringMac =
+                                    stringMac + stringMacByte.uppercase() + if (i < networkInterface.hardwareAddress.size - 1) ":" else ""
                             }
-                            stringMac =
-                                stringMac + stringMacByte.uppercase() + if (i < networkInterface.hardwareAddress.size - 1) ":" else ""
+                        }else{
+                            return "-999"
                         }
                     }
                 }
@@ -79,4 +77,6 @@ object Utils {
             tManager.networkOperatorName
         }
     }
+
+
 }

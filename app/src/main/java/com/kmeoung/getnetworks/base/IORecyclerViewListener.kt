@@ -1,4 +1,4 @@
-package com.kmeoung.getnetwork.base
+package com.kmeoung.getnetworks.base
 
 import androidx.annotation.NonNull
 import android.view.ViewGroup

@@ -1,4 +1,4 @@
-package com.kmeoung.getnetwork
+package com.kmeoung.getnetworks
 
 import org.junit.Test
 

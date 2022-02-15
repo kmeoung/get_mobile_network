@@ -19,7 +19,7 @@ import android.telephony.CellInfoLte
 import android.content.Context.TELEPHONY_SERVICE
 
 import android.telephony.PhoneStateListener
-import com.kmeoung.getnetwork.bean.BeanMobileNetwork
+import com.kmeoung.getnetworks.bean.BeanMobileNetwork
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.collections.ArrayList
@@ -147,15 +147,17 @@ class CellularManager(private val context: Context) {
 
     @SuppressLint("MissingPermission")
     fun getNodeBId(cid: Long): Int {
-        //16진수 cid
-        var cellIdHex = decToHex(cid)
-
-        //16진수 eNB
-        var eNBHex =
-            if (cellIdHex.length > 2) cellIdHex.substring(0, cellIdHex.length - 2) else cellIdHex
-
-        //10진수 eNB
-        return hexToDec(eNBHex)
+        // todo : NodeBId가 아닌 CID값 반환
+//        //16진수 cid
+//        var cellIdHex = decToHex(cid)
+//
+//        //16진수 eNB
+//        var eNBHex =
+//            if (cellIdHex.length > 2) cellIdHex.substring(0, cellIdHex.length - 2) else cellIdHex
+//
+//        //10진수 eNB
+//        return hexToDec(eNBHex)
+        return cid.toInt()
     }
 
 
@@ -163,7 +165,6 @@ class CellularManager(private val context: Context) {
     fun getData(searchCount: Int): ArrayList<BeanMobileNetwork> {
         useNumber++
         val array = ArrayList<BeanMobileNetwork>()
-        val cal = Calendar.getInstance()
         val fmt = SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
         for (count in 0 until searchCount) {
             val cellInfos =
@@ -171,6 +172,7 @@ class CellularManager(private val context: Context) {
             val nbIdType = if (count == 1) "P" else "N"
 
             for (i in 0 until cellInfos.size) {
+                val cal = Calendar.getInstance()
                 val cellInfo = cellInfos[i]
                 var dbm: Int
                 val currentNetworkType = getType()

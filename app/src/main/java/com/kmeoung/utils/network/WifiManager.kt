@@ -13,7 +13,7 @@ import android.os.Build
 import android.util.Log
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import com.kmeoung.getnetwork.bean.BeanWifiData
+import com.kmeoung.getnetworks.bean.BeanWifiData
 import com.kmeoung.utils.network.listener.IOWifiListener
 import java.lang.Exception
 import java.text.SimpleDateFormat
@@ -34,7 +34,7 @@ class WifiManager(private var context: Context) {
     private val wifiScanReceiver: BroadcastReceiver
     private var wifiListener: IOWifiListener? = null
     private var scanCount = 0
-    var useNumber = 0
+    var onlyScanCount = 0
 
     companion object {
         val REQUIRED_PERMISSION = arrayOf(
@@ -163,6 +163,7 @@ class WifiManager(private var context: Context) {
         wifiScanReceiver = object : BroadcastReceiver() {
 
             override fun onReceive(context: Context, intent: Intent) {
+
                 // todo : connectionInfo 시 변
 //                val request : NetworkRequest =
 //                    NetworkRequest.Builder()
@@ -195,11 +196,9 @@ class WifiManager(private var context: Context) {
                 if (success) {
                     val results = wifiManager.scanResults
                     val connectWifi = wifiManager.connectionInfo
-                    var scanCount = 0
-                    val cal = Calendar.getInstance()
+                    var cal = Calendar.getInstance()
                     val fmt = SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
                     for (result in results) {
-                        var isConnected = false
                         var bssid: String
                         var ssid: String
                         var frequency: Int
@@ -213,12 +212,12 @@ class WifiManager(private var context: Context) {
                         var channel = getChannelinFrequency(result.frequency)
 
                         if (result.BSSID == connectWifi.bssid) {
-                            isConnected = true
-                            for (count in 1 until scanCount) {
+
+                            for (count in 2 until scanCount) {
                                 val newWifiManager =
                                     context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
                                 val currentWifiInfo = newWifiManager.connectionInfo
-
+                                cal = Calendar.getInstance()
                                 bssid = currentWifiInfo.bssid
                                 ssid = currentWifiInfo.ssid
                                 frequency = currentWifiInfo.frequency
@@ -248,7 +247,7 @@ class WifiManager(private var context: Context) {
                                     }
 
                                 wifiData = BeanWifiData(
-                                    isConnected = isConnected,
+                                    isConnected = true,
                                     BSSID = bssid,
                                     SSID = ssid,
                                     frequency = frequency,
@@ -259,7 +258,6 @@ class WifiManager(private var context: Context) {
                                     channel = channel,
                                     meas_time = fmt.format(cal.time)
                                 )
-
 
                                 wifiListener?.scanSuccess(wifiData)
                             }
@@ -276,20 +274,19 @@ class WifiManager(private var context: Context) {
                                 else -> ""
                             }
                             rssi = result.level
-
                             wifiData = BeanWifiData(
-                                isConnected = isConnected,
+                                isConnected = false,
                                 BSSID = bssid,
                                 SSID = ssid,
                                 frequency = frequency,
                                 bandWidth = bandWidth,
                                 RSSI = rssi,
                                 standard = standard,
-                                data_idx = scanCount,
+                                data_idx = onlyScanCount,
                                 channel = channel,
                                 meas_time = fmt.format(cal.time)
                             )
-                            scanCount++
+                            onlyScanCount++
                             if (wifiListener != null) wifiListener!!.scanSuccess(wifiData)
                         }
                     }
@@ -344,58 +341,60 @@ class WifiManager(private var context: Context) {
      */
     fun scanStart(scanCount: Int, listener: IOWifiListener?) {
 
-        useNumber++
         wifiListener = listener
         this.scanCount = scanCount
         try {
-            val cal = Calendar.getInstance()
-            val fmt = SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
 
-            val newWifiManager =
-                context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-            val currentWifiInfo = newWifiManager.connectionInfo
+            for (count in 0 until 2) {
+                val cal = Calendar.getInstance()
+                val fmt = SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
+
+                val newWifiManager =
+                    context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+                val currentWifiInfo = newWifiManager.connectionInfo
 
 
-            Log.d("TAEWOONGKWON", newWifiManager.scanResults.toString())
-            val bssid = currentWifiInfo.bssid
-            val ssid = currentWifiInfo.ssid
-            val frequency = currentWifiInfo.frequency
-            val bandWidth = "-999"
-            val rssi = currentWifiInfo.rssi
+                Log.d("TAEWOONGKWON", newWifiManager.scanResults.toString())
+                val bssid = currentWifiInfo.bssid
+                val ssid = currentWifiInfo.ssid
+                val frequency = currentWifiInfo.frequency
+                val bandWidth = "-999"
+                val rssi = currentWifiInfo.rssi
 
-            var standard = "$DEFAULT_DATA"
-            // CINR = carrier to interference and noise ratio
-            // MCS = Modulation & Conding Scheme
-            var channel = getChannelinFrequency(frequency)
-            // 30 이상에서 가져오기 가능
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
-                standard = when (currentWifiInfo.wifiStandard) {
-                    ScanResult.WIFI_STANDARD_11AC -> "11AC"
-                    ScanResult.WIFI_STANDARD_11AD -> "11AD"
-                    ScanResult.WIFI_STANDARD_11AX -> "11AX"
-                    ScanResult.WIFI_STANDARD_11N -> "11N"
-                    ScanResult.WIFI_STANDARD_LEGACY -> "LEGACY"
-                    ScanResult.WIFI_STANDARD_UNKNOWN -> "UNKNOWN"
-                    else -> "-999"
-                }
+                var standard = "$DEFAULT_DATA"
+                // CINR = carrier to interference and noise ratio
+                // MCS = Modulation & Conding Scheme
+                var channel = getChannelinFrequency(frequency)
+                // 30 이상에서 가져오기 가능
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
+                    standard = when (currentWifiInfo.wifiStandard) {
+                        ScanResult.WIFI_STANDARD_11AC -> "11AC"
+                        ScanResult.WIFI_STANDARD_11AD -> "11AD"
+                        ScanResult.WIFI_STANDARD_11AX -> "11AX"
+                        ScanResult.WIFI_STANDARD_11N -> "11N"
+                        ScanResult.WIFI_STANDARD_LEGACY -> "LEGACY"
+                        ScanResult.WIFI_STANDARD_UNKNOWN -> "UNKNOWN"
+                        else -> "-999"
+                    }
 
-            val wifiData = BeanWifiData(
-                isConnected = true,
-                BSSID = bssid,
-                SSID = ssid,
-                frequency = frequency,
-                bandWidth = bandWidth,
-                RSSI = rssi,
-                standard = standard,
-                meas_idx = 0,
-                channel = channel,
-                meas_time = fmt.format(cal.time)
-            )
-            wifiListener?.scanSuccess(wifiData)
+                val wifiData = BeanWifiData(
+                    isConnected = true,
+                    BSSID = bssid,
+                    SSID = ssid,
+                    frequency = frequency,
+                    bandWidth = bandWidth,
+                    RSSI = rssi,
+                    standard = standard,
+                    meas_idx = count,
+                    channel = channel,
+                    meas_time = fmt.format(cal.time)
+                )
+                wifiListener?.scanSuccess(wifiData)
+            }
         } catch (e: Exception) {
             e.printStackTrace()
         }
-
+        onlyScanCount = 0
         val success = wifiManager.startScan()
         if (!success) {
             // scan failure handling
