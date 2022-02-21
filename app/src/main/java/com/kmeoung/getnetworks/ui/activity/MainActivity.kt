@@ -27,6 +27,7 @@ import com.kmeoung.getnetworks.databinding.MainActivityBinding
 import com.kmeoung.utils.*
 import com.kmeoung.utils.network.MobileNetworkManager
 import com.kmeoung.utils.network.listener.IOMobileNetworkListener
+import java.lang.reflect.Method
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -47,6 +48,7 @@ class MainActivity : BaseActivity() {
         private const val ACTIVE_MOBILE_NETWORK = "모바일 네트워크를 활성화한 후 다시 시도해주세요."
         private const val ACTIVE_LOCATION_INFORMATION = "위치 정보 설정을 활성화한 후 다시 시도해주세요."
         private const val PLEASE_WAIT_2MINUTE = "2분뒤에 다시 시도해주세요"
+        private const val PLEASE_ON_OFF_WIFI = "원활한 진행을 위해 와이파이를 껏다가 켜주시기 바랍니다."
     }
 
     private lateinit var binding: MainActivityBinding
@@ -62,6 +64,32 @@ class MainActivity : BaseActivity() {
     // TODO : temp
     private var _dialog: ProgressDialog? = null
 
+    fun userWifiSet() {
+        // todo : 상태바 표시
+//        try {
+//            val sbservice = application.getSystemService("statusbar")
+//            val statusbarManager: Class<*>
+//            statusbarManager = Class.forName("android.app.StatusBarManager")
+//            val showsb: Method
+//            showsb = if (Build.VERSION.SDK_INT >= 17) {
+//                statusbarManager.getMethod("expandNotificationsPanel")
+//            } else {
+//                statusbarManager.getMethod("expand")
+//            }
+//            showsb.invoke(sbservice)
+//        } catch (e: Exception) {
+//            e.printStackTrace()
+//        }
+
+
+        val panelIntent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            Intent(Settings.Panel.ACTION_WIFI)
+        } else {
+            Intent(Settings.ACTION_SETTINGS)
+        }
+        startActivity(panelIntent)
+
+    }
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -160,12 +188,23 @@ class MainActivity : BaseActivity() {
             override fun wifiSearchCountOver() {
                 Toast.makeText(
                     this@MainActivity,
-                    PLEASE_WAIT_2MINUTE,
+                    PLEASE_ON_OFF_WIFI,
                     Toast.LENGTH_SHORT
                 )
                     .show()
                 binding.btn.isEnabled = true
                 if (_dialog != null && _dialog!!.isShowing) _dialog!!.dismiss()
+
+                val builder = AlertDialog.Builder(this@MainActivity)
+                builder.setMessage(REQUEST_PERMISSIONS)
+                builder.setPositiveButton(
+                    CONFIRM
+                ) { dialog, _ ->
+                    userWifiSet()
+                    dialog.dismiss()
+                }
+                builder.show()
+
             }
 
             override fun successFindInfo(jsonString: String, dataList: ArrayList<Any>?) {
